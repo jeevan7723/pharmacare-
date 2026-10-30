@@ -1,0 +1,605 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Project ID: pharmacare-1d3a2
+// Application: PharmaCare Pro Medical Store & Pharmacy Billing System
+//
+// Collections:
+//
+// 1. /medicines/{medicineId}
+//    - id: string (1-100 chars, immutable) - Unique medicine ID
+//    - name: string (1-200 chars) - Commercial brand name
+//    - genericName: string (1-300 chars) - Chemical active pharmaceutical ingredients
+//    - manufacturer: string (1-200 chars) - Pharmaceutical company
+//    - category: string enum (Tablets, Capsules, Syrups & Suspensions, Injections, Ointments & Creams, Drops (Eye/Ear), Inhalers & Respiratory, Medical Devices & First Aid, Nutraceuticals & Vitamins, Baby Care, Personal Care)
+//    - rack: string (1-50 chars) - Physical rack designation
+//    - shelf: string (1-50 chars) - Physical shelf placement
+//    - hsnCode: string (1-20 chars) - GST HSN classification code
+//    - schedule: string enum (OTC, Schedule H, Schedule H1, Schedule X, Narcotic)
+//    - unit: string (1-50 chars) - Unit of sale (Strip, Bottle, Tube, Box, Vial, Piece)
+//    - packSize: number (1 - 100,000) - Number of units per strip/pack
+//    - minStockAlert: number (0 - 100,000) - Threshold for low stock warning
+//    - defaultGstPercent: number (0 - 100) - Standard GST tax percentage
+//    - description: optional string (0-1000 chars) - Clinical indications or instructions
+//    - createdAt: string (10-40 chars) or timestamp (immutable)
+//
+// 2. /batches/{batchId}
+//    - id: string (1-100 chars, immutable) - Unique batch document identifier
+//    - medicineId: string (1-100 chars, immutable) - Foreign reference to medicine
+//    - medicineName: string (1-200 chars) - Denormalized medicine name for fast lookups
+//    - batchNumber: string (1-50 chars) - Manufacturer batch lot number
+//    - expiryDate: string (4-20 chars) - Expiry date format (e.g. YYYY-MM or YYYY-MM-DD)
+//    - purchaseRate: number (>= 0) - Cost price per unit (excl. tax)
+//    - mrp: number (>= 0) - Maximum retail price
+//    - saleRate: number (>= 0) - Effective selling rate
+//    - stockQty: number (>= 0) - Currently available physical stock units
+//    - barcode: optional string (0-100 chars) - GS1/EAN barcode
+//    - supplierId: optional string (0-100 chars) - Supplier reference
+//    - supplierName: optional string (0-200 chars) - Supplier name
+//    - createdAt: string (10-40 chars) or timestamp (immutable)
+//
+// 3. /customers/{customerId}
+//    - id: string (1-100 chars, immutable) - Unique customer identifier
+//    - name: string (1-150 chars) - Patient/Customer full name
+//    - phone: string (5-25 chars) - Primary contact phone number
+//    - email: optional string (0-100 chars) - Contact email address
+//    - address: optional string (0-300 chars) - Residential address
+//    - doctorName: optional string (0-150 chars) - Regular consulting physician
+//    - outstandingBalance: number (>= 0) - Khata / credit amount due
+//    - totalPurchases: number (>= 0) - Lifetime aggregate purchases
+//    - createdAt: string (10-40 chars) or timestamp (immutable)
+//
+// 4. /doctors/{doctorId}
+//    - id: string (1-100 chars, immutable) - Unique doctor identifier
+//    - name: string (1-150 chars) - Prescribing doctor name
+//    - specialization: optional string (0-150 chars) - Medical specialty (e.g. MD Med, Card)
+//    - clinic: optional string (0-200 chars) - Clinic or hospital name
+//    - regNo: optional string (0-50 chars) - State Medical Council / MCI registration no.
+//    - phone: optional string (0-25 chars) - Clinic telephone/mobile
+//    - address: optional string (0-300 chars) - Clinic physical address
+//
+// 5. /suppliers/{supplierId}
+//    - id: string (1-100 chars, immutable) - Unique distributor identifier
+//    - name: string (1-200 chars) - Wholesale / distributor agency name
+//    - contactPerson: optional string (0-150 chars) - Sales representative name
+//    - phone: string (5-25 chars) - Distributor contact number
+//    - email: optional string (0-100 chars) - Orders email
+//    - address: optional string (0-300 chars) - Warehouse / depot address
+//    - gstin: optional string (0-30 chars) - 15-digit GSTIN
+//    - dlNo: optional string (0-50 chars) - Wholesale Drug License number
+//    - balance: number (-100,000,000 to 100,000,000) - Payable or credit balance
+//
+// 6. /invoices/{invoiceId}
+//    - id: string (1-100 chars, immutable) - Unique bill identifier
+//    - invoiceNo: string (1-50 chars, immutable) - Sequenced tax invoice number
+//    - date: string (8-25 chars, immutable) - Date of sale
+//    - time: string (1-20 chars) - Time of billing (e.g. 14:30)
+//    - customerId: optional string (0-100 chars) - Linked customer ID
+//    - customerName: string (1-150 chars) - Patient/Customer name
+//    - customerPhone: string (0-25 chars) - Customer phone
+//    - doctorName: optional string (0-150 chars) - Prescribing doctor name
+//    - doctorRegNo: optional string (0-50 chars) - Doctor registration number
+//    - items: list (1-200 items) - Line items of medicines, batches, quantities, taxes
+//    - subtotal: number (>= 0) - Gross item total before discounts
+//    - totalDiscount: number (>= 0) - Total discount deducted
+//    - taxableAmount: number (>= 0) - Net taxable amount
+//    - totalGst: number (>= 0) - Total GST collected
+//    - cgstAmount: number (>= 0) - Central GST portion
+//    - sgstAmount: number (>= 0) - State GST portion
+//    - roundOff: number (-100 to 100) - Round off fraction
+//    - grandTotal: number (>= 0) - Final invoice payable amount
+//    - paymentMode: string enum (cash, upi, card, credit, split)
+//    - paidAmount: number (>= 0) - Amount paid at POS
+//    - changeDue: number (>= 0) - Change returned to customer
+//    - creditAmount: number (>= 0) - Amount debited to customer Khata
+//    - status: string enum (paid, credit, cancelled)
+//    - notes: optional string (0-500 chars) - Remarks or prescription reference
+//    - createdYearMonth: string (7-10 chars, immutable) - Filter partition e.g. "2026-10"
+//
+// 7. /purchases/{purchaseId}
+//    - id: string (1-100 chars, immutable) - Purchase entry ID
+//    - purchaseNo: string (1-50 chars, immutable) - Inward stock receipt number
+//    - supplierId: string (1-100 chars) - Distributor identifier
+//    - supplierName: string (1-200 chars) - Distributor agency name
+//    - supplierInvoiceNo: string (1-100 chars) - Distributor invoice bill number
+//    - date: string (8-25 chars) - Inward receipt date
+//    - items: list (1-200 items) - Received stock items with batch numbers & expiry
+//    - subtotal: number (>= 0) - Taxable amount
+//    - totalGst: number (>= 0) - Total input tax credit GST
+//    - grandTotal: number (>= 0) - Total purchase invoice value
+//    - paymentStatus: string enum (paid, unpaid, partial)
+//    - paidAmount: number (>= 0) - Amount paid to distributor
+//    - notes: optional string (0-500 chars) - Purchase notes
+//    - createdAt: string (10-40 chars) or timestamp (immutable)
+//
+// 8. /customerPayments/{paymentId}
+//    - id: string (1-100 chars, immutable) - Payment receipt identifier
+//    - customerId: string (1-100 chars, immutable) - Customer whose khata is credited
+//    - customerName: string (1-150 chars) - Customer name
+//    - date: string (8-25 chars, immutable) - Payment date
+//    - amount: number (> 0) - Settlement amount received
+//    - paymentMode: string enum (cash, upi, card)
+//    - referenceNo: optional string (0-100 chars) - UPI UTR or card authorization code
+//    - notes: optional string (0-500 chars) - Payment receipt notes
+//
+// 9. /settings/{settingId}
+//    - id: optional number or string (e.g. 1)
+//    - storeName: string (1-200 chars) - Pharmacy enterprise name
+//    - tagline: optional string (0-300 chars) - Pharmacy motto
+//    - addressLine1: string (1-200 chars) - Address line 1
+//    - addressLine2: optional string (0-200 chars) - Address line 2
+//    - city: string (1-100 chars) - City
+//    - state: string (1-100 chars) - State
+//    - pincode: string (1-20 chars) - Postal code
+//    - phone: string (5-30 chars) - Official phone
+//    - email: string (5-100 chars, valid email) - Official email
+//    - dlNo1: string (1-50 chars) - Drug License Form 20B (Allopathic)
+//    - dlNo2: string (1-50 chars) - Drug License Form 21B (Specified Schedule drugs)
+//    - gstin: string (1-30 chars) - GSTIN registration
+//    - fssaiNo: optional string (0-30 chars) - Food Safety & Standards license
+//    - upiId: string (1-100 chars) - Merchant UPI VPA
+//    - upiName: string (1-100 chars) - UPI Payee name
+//    - currencySymbol: string (1-10 chars) - e.g. "₹"
+//    - invoiceFooterTerms: optional string (0-1000 chars) - Terms and return policy
+//    - defaultGstRate: number (0 - 100) - Default GST rate %
+//    - printFormat: string enum (thermal-80mm, a4-tax-invoice, a5)
+//    - autoPrintOnSave: bool - Automatic print trigger flag
+//
+// 10. /heldBills/{heldBillId}
+//    - id: string (1-100 chars, immutable) - Held bill ID
+//    - holdTime: string (1-20 chars) - Time when placed on hold
+//    - customerName: string (1-150 chars) - Customer name
+//    - customerPhone: string (0-25 chars) - Customer phone
+//    - doctorName: optional string (0-150 chars) - Consulting doctor
+//    - items: list (1-200 items) - Cart items saved on hold
+//    - note: optional string (0-500 chars) - Hold reason or summary
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Default Deny Rule
+    // ===============================================================
+    // Deny all reads and writes by default across any undefined collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    // Check if user is authenticated with Firebase Authentication
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user has administrative privileges (store owner / manager)
+    // Authority is derived ONLY from custom claims or verified bootstrap email
+    function isAdmin() {
+      return isAuthenticated() && (
+        ('admin' in request.auth.token && request.auth.token.admin == true) ||
+        ('role' in request.auth.token && request.auth.token.role == 'admin') ||
+        (request.auth.token.email != null && request.auth.token.email == 'healthplus.pharmacy@gmail.com')
+      );
+    }
+
+    // Check if user is an authorized pharmacy staff member (pharmacist, cashier, manager, admin)
+    function isStaff() {
+      return isAuthenticated() && (
+        isAdmin() ||
+        ('role' in request.auth.token && request.auth.token.role in ['staff', 'pharmacist', 'cashier', 'manager']) ||
+        request.auth.uid != null
+      );
+    }
+
+    // Validate that required fields are present
+    function hasRequiredFields(data, fields) {
+      return data.keys().hasAll(fields);
+    }
+
+    // Validate that no unexpected fields are present (Strict schema enforcement)
+    function hasOnlyAllowedFields(data, fields) {
+      return data.keys().hasOnly(fields);
+    }
+
+    // Validate that immutable fields remain unchanged during update
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Validate standard email format
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() >= 5 &&
+        email.size() <= 100 &&
+        email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    // Validate created timestamp or ISO date string
+    function isValidCreatedDate(val) {
+      return (val is string && val.size() >= 10 && val.size() <= 40) || (val is timestamp);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    // 1. Medicine Validator
+    function isValidMedicine(data) {
+      return hasRequiredFields(data, [
+        'id', 'name', 'genericName', 'manufacturer', 'category',
+        'rack', 'shelf', 'hsnCode', 'schedule', 'unit',
+        'packSize', 'minStockAlert', 'defaultGstPercent', 'createdAt'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'name', 'genericName', 'manufacturer', 'category',
+        'rack', 'shelf', 'hsnCode', 'schedule', 'unit',
+        'packSize', 'minStockAlert', 'defaultGstPercent', 'createdAt',
+        'description'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
+      data.genericName is string && data.genericName.size() >= 1 && data.genericName.size() <= 300 &&
+      data.manufacturer is string && data.manufacturer.size() >= 1 && data.manufacturer.size() <= 200 &&
+      data.category in [
+        'Tablets', 'Capsules', 'Syrups & Suspensions', 'Injections',
+        'Ointments & Creams', 'Drops (Eye/Ear)', 'Inhalers & Respiratory',
+        'Medical Devices & First Aid', 'Nutraceuticals & Vitamins',
+        'Baby Care', 'Personal Care'
+      ] &&
+      data.rack is string && data.rack.size() >= 1 && data.rack.size() <= 50 &&
+      data.shelf is string && data.shelf.size() >= 1 && data.shelf.size() <= 50 &&
+      data.hsnCode is string && data.hsnCode.size() >= 1 && data.hsnCode.size() <= 20 &&
+      data.schedule in ['OTC', 'Schedule H', 'Schedule H1', 'Schedule X', 'Narcotic'] &&
+      data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 50 &&
+      data.packSize is number && data.packSize >= 1 && data.packSize <= 100000 &&
+      data.minStockAlert is number && data.minStockAlert >= 0 && data.minStockAlert <= 100000 &&
+      data.defaultGstPercent is number && data.defaultGstPercent >= 0 && data.defaultGstPercent <= 100 &&
+      isValidCreatedDate(data.createdAt) &&
+      (!('description' in data) || (data.description is string && data.description.size() <= 1000));
+    }
+
+    // 2. Batch Validator
+    function isValidBatch(data) {
+      return hasRequiredFields(data, [
+        'id', 'medicineId', 'medicineName', 'batchNumber',
+        'expiryDate', 'purchaseRate', 'mrp', 'saleRate',
+        'stockQty', 'createdAt'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'medicineId', 'medicineName', 'batchNumber',
+        'expiryDate', 'purchaseRate', 'mrp', 'saleRate',
+        'stockQty', 'createdAt', 'barcode', 'supplierId', 'supplierName'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.medicineId is string && data.medicineId.size() >= 1 && data.medicineId.size() <= 100 &&
+      data.medicineName is string && data.medicineName.size() >= 1 && data.medicineName.size() <= 200 &&
+      data.batchNumber is string && data.batchNumber.size() >= 1 && data.batchNumber.size() <= 50 &&
+      data.expiryDate is string && data.expiryDate.size() >= 4 && data.expiryDate.size() <= 20 &&
+      data.purchaseRate is number && data.purchaseRate >= 0 && data.purchaseRate <= 10000000 &&
+      data.mrp is number && data.mrp >= 0 && data.mrp <= 10000000 &&
+      data.saleRate is number && data.saleRate >= 0 && data.saleRate <= 10000000 &&
+      data.stockQty is number && data.stockQty >= 0 && data.stockQty <= 10000000 &&
+      isValidCreatedDate(data.createdAt) &&
+      (!('barcode' in data) || (data.barcode is string && data.barcode.size() <= 100)) &&
+      (!('supplierId' in data) || (data.supplierId is string && data.supplierId.size() <= 100)) &&
+      (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() <= 200));
+    }
+
+    // 3. Customer / Patient Profile Validator
+    function isValidCustomer(data) {
+      return hasRequiredFields(data, [
+        'id', 'name', 'phone', 'outstandingBalance', 'totalPurchases', 'createdAt'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'name', 'phone', 'outstandingBalance', 'totalPurchases',
+        'createdAt', 'email', 'address', 'doctorName'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+      data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 25 &&
+      data.outstandingBalance is number && data.outstandingBalance >= 0 && data.outstandingBalance <= 100000000 &&
+      data.totalPurchases is number && data.totalPurchases >= 0 && data.totalPurchases <= 100000000 &&
+      isValidCreatedDate(data.createdAt) &&
+      (!('email' in data) || (data.email is string && data.email.size() <= 100)) &&
+      (!('address' in data) || (data.address is string && data.address.size() <= 300)) &&
+      (!('doctorName' in data) || (data.doctorName is string && data.doctorName.size() <= 150));
+    }
+
+    // 4. Doctor / Prescriber Directory Validator
+    function isValidDoctor(data) {
+      return hasRequiredFields(data, ['id', 'name']) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'name', 'specialization', 'clinic', 'regNo', 'phone', 'address'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 150 &&
+      (!('specialization' in data) || (data.specialization is string && data.specialization.size() <= 150)) &&
+      (!('clinic' in data) || (data.clinic is string && data.clinic.size() <= 200)) &&
+      (!('regNo' in data) || (data.regNo is string && data.regNo.size() <= 50)) &&
+      (!('phone' in data) || (data.phone is string && data.phone.size() <= 25)) &&
+      (!('address' in data) || (data.address is string && data.address.size() <= 300));
+    }
+
+    // 5. Supplier / Distributor Validator
+    function isValidSupplier(data) {
+      return hasRequiredFields(data, ['id', 'name', 'phone', 'balance']) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'name', 'phone', 'balance', 'contactPerson',
+        'email', 'address', 'gstin', 'dlNo'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 200 &&
+      data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 25 &&
+      data.balance is number && data.balance >= -100000000 && data.balance <= 100000000 &&
+      (!('contactPerson' in data) || (data.contactPerson is string && data.contactPerson.size() <= 150)) &&
+      (!('email' in data) || (data.email is string && data.email.size() <= 100)) &&
+      (!('address' in data) || (data.address is string && data.address.size() <= 300)) &&
+      (!('gstin' in data) || (data.gstin is string && data.gstin.size() <= 30)) &&
+      (!('dlNo' in data) || (data.dlNo is string && data.dlNo.size() <= 50));
+    }
+
+    // 6. Retail POS Invoice Validator
+    function isValidInvoice(data) {
+      return hasRequiredFields(data, [
+        'id', 'invoiceNo', 'date', 'time', 'customerName',
+        'customerPhone', 'items', 'subtotal', 'totalDiscount',
+        'taxableAmount', 'totalGst', 'cgstAmount', 'sgstAmount',
+        'roundOff', 'grandTotal', 'paymentMode', 'paidAmount',
+        'changeDue', 'creditAmount', 'status', 'createdYearMonth'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'invoiceNo', 'date', 'time', 'customerName',
+        'customerPhone', 'items', 'subtotal', 'totalDiscount',
+        'taxableAmount', 'totalGst', 'cgstAmount', 'sgstAmount',
+        'roundOff', 'grandTotal', 'paymentMode', 'paidAmount',
+        'changeDue', 'creditAmount', 'status', 'createdYearMonth',
+        'customerId', 'doctorName', 'doctorRegNo', 'notes'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.invoiceNo is string && data.invoiceNo.size() >= 1 && data.invoiceNo.size() <= 50 &&
+      data.date is string && data.date.size() >= 8 && data.date.size() <= 25 &&
+      data.time is string && data.time.size() >= 1 && data.time.size() <= 20 &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 150 &&
+      data.customerPhone is string && data.customerPhone.size() <= 25 &&
+      data.items is list && data.items.size() >= 1 && data.items.size() <= 200 &&
+      data.subtotal is number && data.subtotal >= 0 && data.subtotal <= 100000000 &&
+      data.totalDiscount is number && data.totalDiscount >= 0 && data.totalDiscount <= 100000000 &&
+      data.taxableAmount is number && data.taxableAmount >= 0 && data.taxableAmount <= 100000000 &&
+      data.totalGst is number && data.totalGst >= 0 && data.totalGst <= 100000000 &&
+      data.cgstAmount is number && data.cgstAmount >= 0 && data.cgstAmount <= 100000000 &&
+      data.sgstAmount is number && data.sgstAmount >= 0 && data.sgstAmount <= 100000000 &&
+      data.roundOff is number && data.roundOff >= -100 && data.roundOff <= 100 &&
+      data.grandTotal is number && data.grandTotal >= 0 && data.grandTotal <= 100000000 &&
+      data.paymentMode in ['cash', 'upi', 'card', 'credit', 'split'] &&
+      data.paidAmount is number && data.paidAmount >= 0 && data.paidAmount <= 100000000 &&
+      data.changeDue is number && data.changeDue >= 0 && data.changeDue <= 100000000 &&
+      data.creditAmount is number && data.creditAmount >= 0 && data.creditAmount <= 100000000 &&
+      data.status in ['paid', 'credit', 'cancelled'] &&
+      data.createdYearMonth is string && data.createdYearMonth.size() >= 7 && data.createdYearMonth.size() <= 10 &&
+      (!('customerId' in data) || (data.customerId is string && data.customerId.size() <= 100)) &&
+      (!('doctorName' in data) || (data.doctorName is string && data.doctorName.size() <= 150)) &&
+      (!('doctorRegNo' in data) || (data.doctorRegNo is string && data.doctorRegNo.size() <= 50)) &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    // 7. Purchase Order / Inward Stock Validator
+    function isValidPurchaseOrder(data) {
+      return hasRequiredFields(data, [
+        'id', 'purchaseNo', 'supplierId', 'supplierName',
+        'supplierInvoiceNo', 'date', 'items', 'subtotal',
+        'totalGst', 'grandTotal', 'paymentStatus', 'paidAmount', 'createdAt'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'purchaseNo', 'supplierId', 'supplierName',
+        'supplierInvoiceNo', 'date', 'items', 'subtotal',
+        'totalGst', 'grandTotal', 'paymentStatus', 'paidAmount',
+        'createdAt', 'notes'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.purchaseNo is string && data.purchaseNo.size() >= 1 && data.purchaseNo.size() <= 50 &&
+      data.supplierId is string && data.supplierId.size() >= 1 && data.supplierId.size() <= 100 &&
+      data.supplierName is string && data.supplierName.size() >= 1 && data.supplierName.size() <= 200 &&
+      data.supplierInvoiceNo is string && data.supplierInvoiceNo.size() >= 1 && data.supplierInvoiceNo.size() <= 100 &&
+      data.date is string && data.date.size() >= 8 && data.date.size() <= 25 &&
+      data.items is list && data.items.size() >= 1 && data.items.size() <= 200 &&
+      data.subtotal is number && data.subtotal >= 0 && data.subtotal <= 100000000 &&
+      data.totalGst is number && data.totalGst >= 0 && data.totalGst <= 100000000 &&
+      data.grandTotal is number && data.grandTotal >= 0 && data.grandTotal <= 100000000 &&
+      data.paymentStatus in ['paid', 'unpaid', 'partial'] &&
+      data.paidAmount is number && data.paidAmount >= 0 && data.paidAmount <= 100000000 &&
+      isValidCreatedDate(data.createdAt) &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    // 8. Customer Khata Repayment Validator
+    function isValidCustomerPayment(data) {
+      return hasRequiredFields(data, [
+        'id', 'customerId', 'customerName', 'date', 'amount', 'paymentMode'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'customerId', 'customerName', 'date', 'amount',
+        'paymentMode', 'referenceNo', 'notes'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.customerId is string && data.customerId.size() >= 1 && data.customerId.size() <= 100 &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 150 &&
+      data.date is string && data.date.size() >= 8 && data.date.size() <= 25 &&
+      data.amount is number && data.amount > 0 && data.amount <= 100000000 &&
+      data.paymentMode in ['cash', 'upi', 'card'] &&
+      (!('referenceNo' in data) || (data.referenceNo is string && data.referenceNo.size() <= 100)) &&
+      (!('notes' in data) || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    // 9. Store Settings & Legal Compliance Validator
+    function isValidStoreSettings(data) {
+      return hasRequiredFields(data, [
+        'storeName', 'addressLine1', 'city', 'state', 'pincode',
+        'phone', 'email', 'dlNo1', 'dlNo2', 'gstin', 'upiId',
+        'upiName', 'currencySymbol', 'defaultGstRate', 'printFormat',
+        'autoPrintOnSave'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'storeName', 'tagline', 'addressLine1', 'addressLine2',
+        'city', 'state', 'pincode', 'phone', 'email', 'dlNo1',
+        'dlNo2', 'gstin', 'fssaiNo', 'upiId', 'upiName',
+        'currencySymbol', 'invoiceFooterTerms', 'defaultGstRate',
+        'printFormat', 'autoPrintOnSave'
+      ]) &&
+      data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 200 &&
+      data.addressLine1 is string && data.addressLine1.size() >= 1 && data.addressLine1.size() <= 200 &&
+      data.city is string && data.city.size() >= 1 && data.city.size() <= 100 &&
+      data.state is string && data.state.size() >= 1 && data.state.size() <= 100 &&
+      data.pincode is string && data.pincode.size() >= 1 && data.pincode.size() <= 20 &&
+      data.phone is string && data.phone.size() >= 5 && data.phone.size() <= 30 &&
+      isValidEmail(data.email) &&
+      data.dlNo1 is string && data.dlNo1.size() >= 1 && data.dlNo1.size() <= 50 &&
+      data.dlNo2 is string && data.dlNo2.size() >= 1 && data.dlNo2.size() <= 50 &&
+      data.gstin is string && data.gstin.size() >= 1 && data.gstin.size() <= 30 &&
+      data.upiId is string && data.upiId.size() >= 1 && data.upiId.size() <= 100 &&
+      data.upiName is string && data.upiName.size() >= 1 && data.upiName.size() <= 100 &&
+      data.currencySymbol is string && data.currencySymbol.size() >= 1 && data.currencySymbol.size() <= 10 &&
+      data.defaultGstRate is number && data.defaultGstRate >= 0 && data.defaultGstRate <= 100 &&
+      data.printFormat in ['thermal-80mm', 'a4-tax-invoice', 'a5'] &&
+      data.autoPrintOnSave is bool &&
+      (!('tagline' in data) || (data.tagline is string && data.tagline.size() <= 300)) &&
+      (!('addressLine2' in data) || (data.addressLine2 is string && data.addressLine2.size() <= 200)) &&
+      (!('fssaiNo' in data) || (data.fssaiNo is string && data.fssaiNo.size() <= 30)) &&
+      (!('invoiceFooterTerms' in data) || (data.invoiceFooterTerms is string && data.invoiceFooterTerms.size() <= 1000));
+    }
+
+    // 10. Held Bill Validator
+    function isValidHeldBill(data) {
+      return hasRequiredFields(data, [
+        'id', 'holdTime', 'customerName', 'customerPhone', 'items'
+      ]) &&
+      hasOnlyAllowedFields(data, [
+        'id', 'holdTime', 'customerName', 'customerPhone',
+        'items', 'doctorName', 'note'
+      ]) &&
+      data.id is string && data.id.size() >= 1 && data.id.size() <= 100 &&
+      data.holdTime is string && data.holdTime.size() >= 1 && data.holdTime.size() <= 20 &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 150 &&
+      data.customerPhone is string && data.customerPhone.size() <= 25 &&
+      data.items is list && data.items.size() >= 1 && data.items.size() <= 200 &&
+      (!('doctorName' in data) || (data.doctorName is string && data.doctorName.size() <= 150)) &&
+      (!('note' in data) || (data.note is string && data.note.size() <= 500));
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // 1. Medicines Catalog
+    match /medicines/{medicineId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidMedicine(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id', 'createdAt']) &&
+                    isValidMedicine(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 2. Batches & Stock Inventory
+    match /batches/{batchId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidBatch(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id', 'medicineId', 'createdAt']) &&
+                    isValidBatch(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 3. Customers & Patient Khata Ledger
+    match /customers/{customerId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidCustomer(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id', 'createdAt']) &&
+                    isValidCustomer(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 4. Doctors & Prescribers Directory
+    match /doctors/{doctorId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidDoctor(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id']) &&
+                    isValidDoctor(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    // 5. Suppliers & Distributors
+    match /suppliers/{supplierId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidSupplier(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id']) &&
+                    isValidSupplier(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 6. Retail POS Invoices & GST Bills
+    match /invoices/{invoiceId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidInvoice(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id', 'invoiceNo', 'date', 'createdYearMonth']) &&
+                    isValidInvoice(request.resource.data);
+      // Invoice deletion strictly restricted to Administrator for audit compliance
+      allow delete: if isAdmin();
+    }
+
+    // 7. Purchase Orders & Inward Distributor Stock
+    match /purchases/{purchaseId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidPurchaseOrder(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id', 'purchaseNo', 'createdAt']) &&
+                    isValidPurchaseOrder(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 8. Customer Khata Payments
+    match /customerPayments/{paymentId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidCustomerPayment(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id', 'customerId', 'date']) &&
+                    isValidCustomerPayment(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 9. Store Settings, Drug Licenses & UPI Payment Config
+    match /settings/{settingId} {
+      allow read: if isStaff();
+      // Store settings modification restricted to Administrator to prevent payment hijacking
+      allow create: if isAdmin() && isValidStoreSettings(request.resource.data);
+      allow update: if isAdmin() && isValidStoreSettings(request.resource.data);
+      allow delete: if false;
+    }
+
+    // 10. Held Bills (Parked POS transactions)
+    match /heldBills/{heldBillId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidHeldBill(request.resource.data);
+      allow update: if isStaff() &&
+                    areImmutableFieldsUnchanged(['id']) &&
+                    isValidHeldBill(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    // 11. System Health Check Diagnostic Endpoint
+    match /_healthCheck/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
+
