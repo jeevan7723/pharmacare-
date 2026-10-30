@@ -9,6 +9,7 @@ import {
   Building2,
   DollarSign,
   ArrowRight,
+  LogOut,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Medicine, Supplier, PurchaseOrder, PurchaseItem, Batch, StoreSettings } from '../types';
@@ -18,9 +19,10 @@ import { syncPurchaseToCloud, syncBatchToCloud } from '../firebase/firestoreServ
 interface PurchaseEntryProps {
   settings: StoreSettings | null;
   onRefreshStats: () => void;
+  onExit?: () => void;
 }
 
-export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefreshStats }) => {
+export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefreshStats, onExit }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -251,7 +253,7 @@ export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefres
   return (
     <div className="p-4 max-w-7xl mx-auto space-y-4">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex justify-between items-center">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex justify-between items-center gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Truck className="w-5 h-5 text-emerald-600" />
@@ -261,6 +263,18 @@ export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefres
             Record incoming shipments from distributors. Automatically updates inventory batches and stock counts.
           </p>
         </div>
+
+        {onExit && (
+          <button
+            type="button"
+            onClick={onExit}
+            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all shrink-0"
+            title="Exit Purchase"
+          >
+            <LogOut className="w-4 h-4 text-rose-600" />
+            <span>Exit</span>
+          </button>
+        )}
       </div>
 
       {/* Main Form */}

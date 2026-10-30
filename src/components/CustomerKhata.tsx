@@ -25,6 +25,7 @@ import {
   Sparkles,
   Trash2,
   CloudUpload,
+  LogOut,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Customer, CustomerPayment, Invoice, StoreSettings } from '../types';
@@ -41,13 +42,14 @@ import { PrintReceipt } from './PrintReceipt';
 interface CustomerKhataProps {
   settings: StoreSettings | null;
   onRefreshStats: () => void;
+  onExit?: () => void;
 }
 
 const DEMO_CUSTOMER_IDS = ['cust-01', 'cust-02', 'cust-03', 'cust-04'];
 const DEMO_CUSTOMER_NAMES = ['rajesh sharma', 'pooja verma', 'anil deshmukh', 'sunita patil'];
 const DEMO_INVOICE_IDS = ['inv-demo-01', 'INV-2026-0001'];
 
-export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefreshStats }) => {
+export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefreshStats, onExit }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   // Sub-tabs: 'customers' (Directory & Ledgers) vs 'all-bills' (All Store Bills Register)
@@ -406,6 +408,18 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
               <span className="text-red-700 font-semibold">Total Khata Due: </span>
               <strong className="text-red-800 text-sm font-mono">{formatCurrency(totalOutstanding, symbol)}</strong>
             </div>
+
+            {onExit && (
+              <button
+                type="button"
+                onClick={onExit}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                title="Exit Khata"
+              >
+                <LogOut className="w-4 h-4 text-rose-600" />
+                <span>Exit</span>
+              </button>
+            )}
 
             <button
               type="button"

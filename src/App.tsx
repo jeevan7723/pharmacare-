@@ -118,11 +118,17 @@ export const App: React.FC = () => {
       } else if (e.key === 'F3') {
         e.preventDefault();
         setActiveTab('inventory');
+      } else if (e.key === 'Escape' && activeTab !== 'dashboard') {
+        // Exit to dashboard if no dialog modal is currently open
+        const hasOpenDialog = document.querySelector('dialog[open]');
+        if (!hasOpenDialog) {
+          setActiveTab('dashboard');
+        }
       }
     };
     window.addEventListener('keydown', handleGlobalKey);
     return () => window.removeEventListener('keydown', handleGlobalKey);
-  }, []);
+  }, [activeTab]);
 
   if (isLoading) {
     return (
@@ -196,24 +202,52 @@ export const App: React.FC = () => {
                 settings={settings}
                 onRefreshStats={refreshStats}
                 isActive={activeTab === 'billing'}
+                onExit={() => setActiveTab('dashboard')}
               />
             </div>
             {activeTab === 'inventory' && (
-              <InventoryManagement settings={settings} onRefreshStats={refreshStats} />
+              <InventoryManagement
+                settings={settings}
+                onRefreshStats={refreshStats}
+                onExit={() => setActiveTab('dashboard')}
+              />
             )}
             {activeTab === 'purchase' && (
-              <PurchaseEntry settings={settings} onRefreshStats={refreshStats} />
+              <PurchaseEntry
+                settings={settings}
+                onRefreshStats={refreshStats}
+                onExit={() => setActiveTab('dashboard')}
+              />
             )}
             {activeTab === 'alerts' && (
-              <ExpiryAlerts settings={settings} onRefreshStats={refreshStats} />
+              <ExpiryAlerts
+                settings={settings}
+                onRefreshStats={refreshStats}
+                onExit={() => setActiveTab('dashboard')}
+              />
             )}
             {activeTab === 'customers' && (
-              <CustomerKhata settings={settings} onRefreshStats={refreshStats} />
+              <CustomerKhata
+                settings={settings}
+                onRefreshStats={refreshStats}
+                onExit={() => setActiveTab('dashboard')}
+              />
             )}
-            {activeTab === 'doctors' && <DoctorsDirectory />}
-            {activeTab === 'reports' && <ReportsView settings={settings} />}
+            {activeTab === 'doctors' && (
+              <DoctorsDirectory onExit={() => setActiveTab('dashboard')} />
+            )}
+            {activeTab === 'reports' && (
+              <ReportsView
+                settings={settings}
+                onExit={() => setActiveTab('dashboard')}
+              />
+            )}
             {activeTab === 'settings' && (
-              <SettingsView settings={settings} onRefreshSettings={refreshStats} />
+              <SettingsView
+                settings={settings}
+                onRefreshSettings={refreshStats}
+                onExit={() => setActiveTab('dashboard')}
+              />
             )}
           </main>
 

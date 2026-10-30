@@ -18,6 +18,7 @@ import {
   Server,
   FileDown,
   Loader2,
+  LogOut,
 } from 'lucide-react';
 import { db, exportDatabaseToJson, restoreDatabaseFromJson, resetDatabaseToDefault } from '../db/db';
 import { StoreSettings } from '../types';
@@ -32,9 +33,10 @@ import {
 interface SettingsProps {
   settings: StoreSettings | null;
   onRefreshSettings: () => void;
+  onExit?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSettings }) => {
+export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSettings, onExit }) => {
   const [formData, setFormData] = useState<StoreSettings>({
     storeName: '',
     tagline: '',
@@ -181,7 +183,7 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
   return (
     <div className="p-4 max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex justify-between items-center">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Settings className="w-5 h-5 text-emerald-600" />
@@ -192,12 +194,26 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
           </p>
         </div>
 
-        {isSaved && (
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg animate-bounce">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>Settings Saved!</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {onExit && (
+            <button
+              type="button"
+              onClick={onExit}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+              title="Exit Settings"
+            >
+              <LogOut className="w-4 h-4 text-rose-600" />
+              <span>Exit</span>
+            </button>
+          )}
+
+          {isSaved && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg animate-bounce">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Settings Saved!</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Settings Form */}

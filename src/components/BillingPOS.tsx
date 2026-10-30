@@ -20,6 +20,7 @@ import {
   HelpCircle,
   MapPin,
   ShieldAlert,
+  LogOut,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../db/db';
@@ -48,9 +49,10 @@ interface BillingPOSProps {
   settings: StoreSettings | null;
   onRefreshStats: () => void;
   isActive?: boolean;
+  onExit?: () => void;
 }
 
-export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats, isActive = true }) => {
+export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats, isActive = true, onExit }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   // Shared billing draft state (survives tab switching and reloads)
@@ -749,6 +751,18 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
               <RotateCcw className="w-3.5 h-3.5" />
               <span>New Bill</span>
             </button>
+
+            {onExit && (
+              <button
+                type="button"
+                onClick={onExit}
+                title="Exit POS and return to Dashboard"
+                className="px-2.5 py-1.5 rounded-lg border border-rose-300 bg-rose-50 text-rose-700 text-xs font-bold hover:bg-rose-100 flex items-center gap-1 shadow-xs transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-600" />
+                <span>Exit POS</span>
+              </button>
+            )}
           </div>
         </div>
 
