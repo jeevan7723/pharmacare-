@@ -14,7 +14,11 @@ import { DoctorsDirectory } from './components/DoctorsDirectory';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
 import { ActiveBillDock } from './components/ActiveBillDock';
-import { syncSettingsToCloud, syncAllBillingAndPaymentsToCloud } from './firebase/firestoreService';
+import {
+  syncSettingsToCloud,
+  syncAllBillingAndPaymentsToCloud,
+  downloadCloudDatabaseToLocal,
+} from './firebase/firestoreService';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -79,8 +83,20 @@ export const App: React.FC = () => {
     const init = async () => {
       try {
         await initializeDatabase();
+
+        // Automatically fetch and synchronize existing pharmacy data from Firebase Cloud Firestore
+        try {
+          const cloudResult = await downloadCloudDatabaseToLocal();
+          if (cloudResult.success) {
+            console.log('[App] Cloud data synchronized on startup:', cloudResult.message);
+          }
+        } catch (cloudErr) {
+          console.warn('[App] Firebase Cloud auto-sync notice:', cloudErr);
+        }
+
         await refreshStats();
-        // Automatically sync all invoices and payments to Firebase Cloud
+
+        // Ensure any local pending records are safely mirrored in Cloud
         syncAllBillingAndPaymentsToCloud().catch((err) => {
           console.warn('Background Firebase billing sync notice:', err);
         });
@@ -114,7 +130,7 @@ export const App: React.FC = () => {
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
         <div className="text-center">
           <h2 className="text-lg font-bold">PharmaCare Pro Billing Software</h2>
-          <p className="text-xs text-slate-400 mt-1">Initializing local database & drug inventory...</p>
+          <p className="text-xs text-slate-400 mt-1">Connecting to Firebase Cloud & loading pharmacy records...</p>
         </div>
       </div>
     );

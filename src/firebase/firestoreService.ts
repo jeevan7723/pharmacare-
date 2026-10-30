@@ -29,6 +29,11 @@ export interface FirebaseSyncStatus {
   error: string | null;
 }
 
+export let isSyncingFromCloud = false;
+export function setSyncingFromCloud(val: boolean) {
+  isSyncingFromCloud = val;
+}
+
 // Check Firebase connection status (read-only verification without writing dummy documents)
 export async function checkFirebaseConnection(): Promise<{ ok: boolean; message: string }> {
   try {
@@ -425,62 +430,67 @@ export async function downloadCloudDatabaseToLocal(): Promise<{ success: boolean
     const payments: CustomerPayment[] = [];
     paymentsSnap.forEach((d) => payments.push(d.data() as CustomerPayment));
 
-    if (meds.length === 0 && batches.length === 0) {
+    if (meds.length === 0 && batches.length === 0 && invs.length === 0) {
       return {
         success: false,
-        message: 'No medicines or batches found in Firebase Cloud. Try clicking "Upload Local Data to Firebase" first.',
+        message: 'No medicines, batches, or invoices found in Firebase Cloud. Try clicking "Upload Local Data to Firebase" first.',
       };
     }
 
-    // Save into local Dexie
-    await db.transaction('rw', [
-      db.medicines,
-      db.batches,
-      db.customers,
-      db.doctors,
-      db.suppliers,
-      db.invoices,
-      db.purchases,
-      db.customerPayments,
-      db.settings,
-    ], async () => {
-      if (meds.length > 0) {
-        await db.medicines.clear();
-        await db.medicines.bulkAdd(meds);
-      }
-      if (batches.length > 0) {
-        await db.batches.clear();
-        await db.batches.bulkAdd(batches);
-      }
-      if (custs.length > 0) {
-        await db.customers.clear();
-        await db.customers.bulkAdd(custs);
-      }
-      if (docs.length > 0) {
-        await db.doctors.clear();
-        await db.doctors.bulkAdd(docs);
-      }
-      if (sups.length > 0) {
-        await db.suppliers.clear();
-        await db.suppliers.bulkAdd(sups);
-      }
-      if (invs.length > 0) {
-        await db.invoices.clear();
-        await db.invoices.bulkAdd(invs);
-      }
-      if (purchases.length > 0) {
-        await db.purchases.clear();
-        await db.purchases.bulkAdd(purchases);
-      }
-      if (payments.length > 0) {
-        await db.customerPayments.clear();
-        await db.customerPayments.bulkAdd(payments);
-      }
-      if (settingsDoc.exists()) {
-        const s = settingsDoc.data() as StoreSettings;
-        await db.settings.put({ ...s, id: 1 });
-      }
-    });
+    setSyncingFromCloud(true);
+    try {
+      // Save into local Dexie
+      await db.transaction('rw', [
+        db.medicines,
+        db.batches,
+        db.customers,
+        db.doctors,
+        db.suppliers,
+        db.invoices,
+        db.purchases,
+        db.customerPayments,
+        db.settings,
+      ], async () => {
+        if (meds.length > 0) {
+          await db.medicines.clear();
+          await db.medicines.bulkAdd(meds);
+        }
+        if (batches.length > 0) {
+          await db.batches.clear();
+          await db.batches.bulkAdd(batches);
+        }
+        if (custs.length > 0) {
+          await db.customers.clear();
+          await db.customers.bulkAdd(custs);
+        }
+        if (docs.length > 0) {
+          await db.doctors.clear();
+          await db.doctors.bulkAdd(docs);
+        }
+        if (sups.length > 0) {
+          await db.suppliers.clear();
+          await db.suppliers.bulkAdd(sups);
+        }
+        if (invs.length > 0) {
+          await db.invoices.clear();
+          await db.invoices.bulkAdd(invs);
+        }
+        if (purchases.length > 0) {
+          await db.purchases.clear();
+          await db.purchases.bulkAdd(purchases);
+        }
+        if (payments.length > 0) {
+          await db.customerPayments.clear();
+          await db.customerPayments.bulkAdd(payments);
+        }
+        if (settingsDoc.exists()) {
+          const s = settingsDoc.data() as StoreSettings;
+          await db.settings.put({ ...s, id: 1 });
+        }
+      });
+    } finally {
+      setSyncingFromCloud(false);
+    }
 
     return {
       success: true,

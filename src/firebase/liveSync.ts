@@ -19,14 +19,13 @@ import {
   syncHeldBillToCloud,
   deleteHeldBillFromCloud,
   syncSettingsToCloud,
+  isSyncingFromCloud,
+  setSyncingFromCloud,
 } from './firestoreService';
 
-let isSyncingFromCloud = false;
 let isLiveSyncInitialized = false;
 
-export function setSyncingFromCloud(val: boolean) {
-  isSyncingFromCloud = val;
-}
+export { setSyncingFromCloud };
 
 /**
  * Initializes automatic real-time Dexie change hooks.
