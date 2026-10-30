@@ -422,19 +422,34 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
         ref={printDialogRef}
         aria-labelledby="reprint-dialog-title"
         closedby="any"
-        className="rounded-2xl p-0 backdrop:bg-slate-900/60 shadow-2xl max-w-4xl w-full text-slate-900 overflow-hidden border border-slate-200"
+        className="rounded-xl sm:rounded-2xl p-0 backdrop:bg-slate-900/60 shadow-2xl max-w-4xl w-[96vw] sm:w-full text-slate-900 overflow-hidden border border-slate-200 m-auto"
       >
-        <div className="bg-slate-900 text-white px-6 py-3 flex justify-between items-center print:hidden">
-          <div className="flex items-center space-x-3">
-            <h2 id="reprint-dialog-title" className="text-base font-bold">
-              Reprint Invoice: {selectedInvoice?.invoiceNo}
-            </h2>
+        <div className="bg-slate-900 text-white p-3 sm:px-6 sm:py-3.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 print:hidden">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <div className="min-w-0">
+              <h2 id="reprint-dialog-title" className="text-sm sm:text-base font-bold truncate">
+                Invoice: {selectedInvoice?.invoiceNo}
+              </h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">
+                {selectedInvoice?.customerName || 'Cash Customer'} &bull; {selectedInvoice?.date} {selectedInvoice?.time}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => printDialogRef.current?.close()}
+              className="p-1 text-slate-400 hover:text-white sm:hidden rounded-lg shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-end gap-2">
             <div className="flex bg-slate-800 p-0.5 rounded-lg text-xs">
               <button
                 type="button"
                 onClick={() => setPrintFormat('thermal-80mm')}
-                className={`px-3 py-1 rounded-md font-bold transition-all ${
-                  printFormat === 'thermal-80mm' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                className={`px-2.5 sm:px-3 py-1 rounded-md font-bold transition-all text-[11px] sm:text-xs ${
+                  printFormat === 'thermal-80mm' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Thermal 80mm
@@ -442,20 +457,18 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
               <button
                 type="button"
                 onClick={() => setPrintFormat('a4-tax-invoice')}
-                className={`px-3 py-1 rounded-md font-bold transition-all ${
-                  printFormat === 'a4-tax-invoice' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                className={`px-2.5 sm:px-3 py-1 rounded-md font-bold transition-all text-[11px] sm:text-xs ${
+                  printFormat === 'a4-tax-invoice' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 A4 Tax Invoice
               </button>
             </div>
-          </div>
 
-          <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg flex items-center gap-1"
+              className="px-3 sm:px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg flex items-center gap-1 shadow-sm shrink-0"
             >
               <Printer className="w-4 h-4" />
               <span>Print</span>
@@ -463,14 +476,14 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
             <button
               type="button"
               onClick={() => printDialogRef.current?.close()}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg"
+              className="hidden sm:flex p-1.5 text-slate-400 hover:text-white rounded-lg shrink-0"
             >
               ✕
             </button>
           </div>
         </div>
 
-        <div className="p-6 bg-slate-100 max-h-[75vh] overflow-y-auto">
+        <div className="p-2 sm:p-6 bg-slate-100 max-h-[80vh] overflow-y-auto overflow-x-auto">
           {selectedInvoice && (
             <PrintReceipt invoice={selectedInvoice} settings={settings} format={printFormat} />
           )}

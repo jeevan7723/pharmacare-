@@ -1084,26 +1084,35 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
         ref={invoiceModalRef}
         aria-labelledby="invoice-modal-title"
         closedby="any"
-        className="rounded-2xl p-0 backdrop:bg-slate-900/60 shadow-2xl max-w-4xl w-full text-slate-900 overflow-hidden border border-slate-200"
+        className="rounded-xl sm:rounded-2xl p-0 backdrop:bg-slate-900/60 shadow-2xl max-w-4xl w-[96vw] sm:w-full text-slate-900 overflow-hidden border border-slate-200 m-auto"
       >
-        <div className="bg-slate-900 text-white px-6 py-3.5 flex justify-between items-center print:hidden">
-          <div className="flex items-center space-x-3">
-            <div>
-              <h2 id="invoice-modal-title" className="text-base font-bold flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-400" />
-                <span>Invoice: {selectedInvoiceForModal?.invoiceNo}</span>
+        <div className="bg-slate-900 text-white p-3 sm:px-6 sm:py-3.5 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2.5 print:hidden">
+          <div className="flex items-center justify-between sm:justify-start gap-3">
+            <div className="min-w-0">
+              <h2 id="invoice-modal-title" className="text-sm sm:text-base font-bold flex items-center gap-2 truncate">
+                <Receipt className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="truncate">Invoice: {selectedInvoiceForModal?.invoiceNo}</span>
               </h2>
-              <p className="text-[11px] text-slate-400">
-                {selectedInvoiceForModal?.customerName} &bull; {selectedInvoiceForModal?.date} {selectedInvoiceForModal?.time}
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">
+                {selectedInvoiceForModal?.customerName || 'Cash Customer'} &bull; {selectedInvoiceForModal?.date} {selectedInvoiceForModal?.time}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleCloseBillModal}
+              className="p-1 text-slate-400 hover:text-white sm:hidden rounded-lg shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-            <div className="flex bg-slate-800 p-0.5 rounded-lg text-xs ml-4">
+          <div className="flex items-center justify-between sm:justify-end gap-2">
+            <div className="flex bg-slate-800 p-0.5 rounded-lg text-xs">
               <button
                 type="button"
                 onClick={() => setPrintFormat('thermal-80mm')}
-                className={`px-3 py-1 rounded-md font-bold transition-all ${
-                  printFormat === 'thermal-80mm' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                className={`px-2.5 sm:px-3 py-1 rounded-md font-bold transition-all text-[11px] sm:text-xs ${
+                  printFormat === 'thermal-80mm' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 Thermal 80mm
@@ -1111,20 +1120,18 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
               <button
                 type="button"
                 onClick={() => setPrintFormat('a4-tax-invoice')}
-                className={`px-3 py-1 rounded-md font-bold transition-all ${
-                  printFormat === 'a4-tax-invoice' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                className={`px-2.5 sm:px-3 py-1 rounded-md font-bold transition-all text-[11px] sm:text-xs ${
+                  printFormat === 'a4-tax-invoice' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 A4 Tax Invoice
               </button>
             </div>
-          </div>
 
-          <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={() => window.print()}
-              className="px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg flex items-center gap-1 shadow-sm"
+              className="px-3 sm:px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs rounded-lg flex items-center gap-1 shadow-sm shrink-0"
             >
               <Printer className="w-4 h-4" />
               <span>Print</span>
@@ -1132,14 +1139,14 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
             <button
               type="button"
               onClick={handleCloseBillModal}
-              className="p-1.5 text-slate-400 hover:text-white rounded-lg"
+              className="hidden sm:flex p-1.5 text-slate-400 hover:text-white rounded-lg shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-6 bg-slate-100 max-h-[80vh] overflow-y-auto">
+        <div className="p-2 sm:p-6 bg-slate-100 max-h-[80vh] overflow-y-auto overflow-x-auto">
           {selectedInvoiceForModal && (
             <PrintReceipt invoice={selectedInvoiceForModal} settings={settings} format={printFormat} />
           )}
