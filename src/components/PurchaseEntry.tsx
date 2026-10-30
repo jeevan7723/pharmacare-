@@ -9,7 +9,6 @@ import {
   Building2,
   DollarSign,
   ArrowRight,
-  LogOut,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Medicine, Supplier, PurchaseOrder, PurchaseItem, Batch, StoreSettings } from '../types';
@@ -19,10 +18,9 @@ import { syncPurchaseToCloud, syncBatchToCloud } from '../firebase/firestoreServ
 interface PurchaseEntryProps {
   settings: StoreSettings | null;
   onRefreshStats: () => void;
-  onExit?: () => void;
 }
 
-export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefreshStats, onExit }) => {
+export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -263,18 +261,6 @@ export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefres
             Record incoming shipments from distributors. Automatically updates inventory batches and stock counts.
           </p>
         </div>
-
-        {onExit && (
-          <button
-            type="button"
-            onClick={onExit}
-            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all shrink-0"
-            title="Exit Purchase"
-          >
-            <LogOut className="w-4 h-4 text-rose-600" />
-            <span>Exit</span>
-          </button>
-        )}
       </div>
 
       {/* Main Form */}

@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Cloud,
-  LogOut,
   ArrowLeft,
 } from 'lucide-react';
 import { StoreSettings } from '../types';
@@ -100,11 +99,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
-            className="flex items-center gap-1 px-2 py-1 text-xs font-bold text-slate-600 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors shrink-0 shadow-xs"
             title="Exit to Dashboard Home"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Exit Section</span>
+            <ArrowLeft className="w-4 h-4 text-slate-600" />
+            <span>Exit Section</span>
           </button>
         )}
 
@@ -177,19 +176,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 ? `Resume Bill (${customerName.trim() || `${cart.length} items`} • ${formatCurrency(grandTotal, symbol)})`
                 : 'Go to POS'}
             </span>
-          </button>
-        )}
-
-        {/* Exit Button on Right */}
-        {activeTab !== 'dashboard' && (
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className="px-2.5 sm:px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-            title="Exit Section and return to Dashboard"
-          >
-            <LogOut className="w-3.5 h-3.5 text-rose-600" />
-            <span>Exit</span>
           </button>
         )}
       </div>

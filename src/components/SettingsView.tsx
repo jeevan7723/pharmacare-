@@ -18,7 +18,6 @@ import {
   Server,
   FileDown,
   Loader2,
-  LogOut,
 } from 'lucide-react';
 import { db, exportDatabaseToJson, restoreDatabaseFromJson, resetDatabaseToDefault } from '../db/db';
 import { StoreSettings } from '../types';
@@ -33,10 +32,9 @@ import {
 interface SettingsProps {
   settings: StoreSettings | null;
   onRefreshSettings: () => void;
-  onExit?: () => void;
 }
 
-export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSettings, onExit }) => {
+export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSettings }) => {
   const [formData, setFormData] = useState<StoreSettings>({
     storeName: '',
     tagline: '',
@@ -195,18 +193,6 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {onExit && (
-            <button
-              type="button"
-              onClick={onExit}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-              title="Exit Settings"
-            >
-              <LogOut className="w-4 h-4 text-rose-600" />
-              <span>Exit</span>
-            </button>
-          )}
-
           {isSaved && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg animate-bounce">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />

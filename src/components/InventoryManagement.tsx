@@ -13,7 +13,6 @@ import {
   Calendar,
   Layers,
   ArrowUpDown,
-  LogOut,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Medicine, Batch, MedicineCategory, ScheduleType, StoreSettings } from '../types';
@@ -44,10 +43,9 @@ const SCHEDULES: ScheduleType[] = ['OTC', 'Schedule H', 'Schedule H1', 'Schedule
 interface InventoryProps {
   settings: StoreSettings | null;
   onRefreshStats: () => void;
-  onExit?: () => void;
 }
 
-export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefreshStats, onExit }) => {
+export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -268,18 +266,6 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         </div>
 
         <div className="flex items-center gap-2">
-          {onExit && (
-            <button
-              type="button"
-              onClick={onExit}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-              title="Exit Inventory"
-            >
-              <LogOut className="w-4 h-4 text-rose-600" />
-              <span>Exit</span>
-            </button>
-          )}
-
           <button
             onClick={openAddMedModal}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"

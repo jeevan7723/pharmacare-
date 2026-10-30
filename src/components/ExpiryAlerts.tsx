@@ -10,7 +10,6 @@ import {
   Building2,
   Calendar,
   AlertCircle,
-  LogOut,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Medicine, Batch, StoreSettings } from '../types';
@@ -19,10 +18,9 @@ import { formatCurrency, checkExpiryStatus } from '../utils/formatters';
 interface ExpiryAlertsProps {
   settings: StoreSettings | null;
   onRefreshStats: () => void;
-  onExit?: () => void;
 }
 
-export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshStats, onExit }) => {
+export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   const [activeTab, setActiveTab] = useState<'expired' | 'critical' | 'warning' | 'lowstock'>('expired');
@@ -95,18 +93,6 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
         </div>
 
         <div className="flex items-center gap-2">
-          {onExit && (
-            <button
-              type="button"
-              onClick={onExit}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-              title="Exit Alerts"
-            >
-              <LogOut className="w-4 h-4 text-rose-600" />
-              <span>Exit</span>
-            </button>
-          )}
-
           <button
             onClick={() => window.print()}
             className="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 shadow-sm"

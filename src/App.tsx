@@ -202,51 +202,44 @@ export const App: React.FC = () => {
                 settings={settings}
                 onRefreshStats={refreshStats}
                 isActive={activeTab === 'billing'}
-                onExit={() => setActiveTab('dashboard')}
               />
             </div>
             {activeTab === 'inventory' && (
               <InventoryManagement
                 settings={settings}
                 onRefreshStats={refreshStats}
-                onExit={() => setActiveTab('dashboard')}
               />
             )}
             {activeTab === 'purchase' && (
               <PurchaseEntry
                 settings={settings}
                 onRefreshStats={refreshStats}
-                onExit={() => setActiveTab('dashboard')}
               />
             )}
             {activeTab === 'alerts' && (
               <ExpiryAlerts
                 settings={settings}
                 onRefreshStats={refreshStats}
-                onExit={() => setActiveTab('dashboard')}
               />
             )}
             {activeTab === 'customers' && (
               <CustomerKhata
                 settings={settings}
                 onRefreshStats={refreshStats}
-                onExit={() => setActiveTab('dashboard')}
               />
             )}
             {activeTab === 'doctors' && (
-              <DoctorsDirectory onExit={() => setActiveTab('dashboard')} />
+              <DoctorsDirectory />
             )}
             {activeTab === 'reports' && (
               <ReportsView
                 settings={settings}
-                onExit={() => setActiveTab('dashboard')}
               />
             )}
             {activeTab === 'settings' && (
               <SettingsView
                 settings={settings}
                 onRefreshSettings={refreshStats}
-                onExit={() => setActiveTab('dashboard')}
               />
             )}
           </main>

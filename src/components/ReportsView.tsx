@@ -10,7 +10,6 @@ import {
   PieChart,
   Eye,
   FileSpreadsheet,
-  LogOut,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Invoice, StoreSettings } from '../types';
@@ -19,10 +18,9 @@ import { PrintReceipt } from './PrintReceipt';
 
 interface ReportsProps {
   settings: StoreSettings | null;
-  onExit?: () => void;
 }
 
-export const ReportsView: React.FC<ReportsProps> = ({ settings, onExit }) => {
+export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
   const symbol = settings?.currencySymbol || '₹';
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -205,18 +203,6 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings, onExit }) => {
             <Download className="w-4 h-4 text-emerald-400" />
             <span>Export CSV</span>
           </button>
-
-          {onExit && (
-            <button
-              type="button"
-              onClick={onExit}
-              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
-              title="Exit Reports"
-            >
-              <LogOut className="w-4 h-4 text-rose-600" />
-              <span>Exit</span>
-            </button>
-          )}
         </div>
       </div>
 
