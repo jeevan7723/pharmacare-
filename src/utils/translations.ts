@@ -454,3 +454,4 @@ export const translations: Record<Language, TranslationDictionary> = {
     'common.marathi': 'मराठी',
   },
 };
+
