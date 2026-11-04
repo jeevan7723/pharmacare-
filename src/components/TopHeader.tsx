@@ -80,34 +80,37 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
       {/* Right: Language Change Button, Badges & Action */}
       <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-        {/* PROMINENT LANGUAGE CHANGE BUTTON: ENGLISH <-> MARATHI */}
+        {/* Language Change Button: English to Marathi */}
         <div
-          className="flex items-center bg-emerald-50/90 p-0.5 sm:p-1 rounded-xl border-2 border-emerald-500 shadow-xs shrink-0"
+          className="flex items-center gap-1.5 bg-slate-900 text-white px-2 py-1 rounded-xl border-2 border-emerald-500 shadow-sm shrink-0"
           title="Change Language / भाषा बदला (English ⇄ मराठी)"
         >
-          <button
-            type="button"
-            onClick={() => setLanguage('en')}
-            className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-              language === 'en'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-emerald-900 hover:bg-emerald-100'
-            }`}
-          >
-            <Languages className="w-3.5 h-3.5" />
-            <span>English</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setLanguage('mr')}
-            className={`px-2 sm:px-2.5 py-1 rounded-lg text-xs font-black transition-all flex items-center gap-1 ${
-              language === 'mr'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-emerald-900 hover:bg-emerald-100'
-            }`}
-          >
-            <span>मराठी</span>
-          </button>
+          <Languages className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-xs font-bold text-slate-200 hidden md:inline">Language:</span>
+          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-700">
+            <button
+              type="button"
+              onClick={() => setLanguage('en')}
+              className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs font-black rounded-md transition-all ${
+                language === 'en'
+                  ? 'bg-emerald-500 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              English
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage('mr')}
+              className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs font-black rounded-md transition-all ${
+                language === 'mr'
+                  ? 'bg-emerald-500 text-white shadow-xs'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              मराठी
+            </button>
+          </div>
         </div>
 
         {/* Cloud Status Badge (visible on larger screens) */}
