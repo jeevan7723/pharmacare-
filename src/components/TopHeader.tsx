@@ -80,18 +80,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
       {/* Right: Language Change Button, Badges & Action */}
       <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-        {/* Language Change Button: English to Marathi */}
+        {/* Language Change Button: English to Marathi (Minimized) */}
         <div
-          className="flex items-center gap-1.5 bg-slate-900 text-white px-2 py-1 rounded-xl border-2 border-emerald-500 shadow-sm shrink-0"
+          className="flex items-center gap-1 bg-slate-900 text-white p-0.5 pl-1.5 rounded-lg border border-emerald-500 shadow-xs shrink-0"
           title="Change Language / भाषा बदला (English ⇄ मराठी)"
         >
-          <Languages className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-xs font-bold text-slate-200 hidden md:inline">Language:</span>
-          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-lg border border-slate-700">
+          <Languages className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <div className="flex items-center bg-slate-950 p-0.5 rounded-md border border-slate-700/60">
             <button
               type="button"
               onClick={() => setLanguage('en')}
-              className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs font-black rounded-md transition-all ${
+              className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-all ${
                 language === 'en'
                   ? 'bg-emerald-500 text-white shadow-xs'
                   : 'text-slate-400 hover:text-white'
@@ -102,7 +101,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <button
               type="button"
               onClick={() => setLanguage('mr')}
-              className={`px-2 sm:px-2.5 py-0.5 sm:py-1 text-xs font-black rounded-md transition-all ${
+              className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-all ${
                 language === 'mr'
                   ? 'bg-emerald-500 text-white shadow-xs'
                   : 'text-slate-400 hover:text-white'
