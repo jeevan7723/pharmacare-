@@ -43,6 +43,7 @@ import {
 import { PrintReceipt } from './PrintReceipt';
 import { syncInvoiceToCloud, syncBatchToCloud, syncCustomerToCloud } from '../firebase/firestoreService';
 import { useBillingDraft } from '../context/BillingDraftContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BillingPOSProps {
   settings: StoreSettings | null;
@@ -52,6 +53,7 @@ interface BillingPOSProps {
 
 export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats, isActive = true }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   // Shared billing draft state (survives tab switching and reloads)
   const {
@@ -631,13 +633,13 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           <div className="md:col-span-3 relative">
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
               <User className="w-3.5 h-3.5 text-emerald-600" />
-              Patient Mobile / Phone
+              {t('pos.patient_mobile', 'Patient Mobile / Phone')}
             </label>
             <input
               type="tel"
               value={customerPhone}
               onChange={(e) => handlePhoneChange(e.target.value)}
-              placeholder="Search or enter 10 digits"
+              placeholder={t('pos.patient_mobile_ph', 'Search or enter 10 digits')}
               className="w-full px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white"
             />
             {customerSuggestions.length > 0 && (
@@ -666,13 +668,13 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           {/* Customer Name */}
           <div className="md:col-span-3">
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-              Patient / Customer Name
+              {t('pos.patient_name', 'Patient / Customer Name')}
             </label>
             <input
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="e.g. Rajesh Sharma"
+              placeholder={t('pos.patient_name_ph', 'e.g. Rajesh Sharma')}
               className="w-full px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-slate-50 focus:bg-white"
             />
           </div>
@@ -681,7 +683,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           <div className="md:col-span-3">
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
               <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
-              Prescribing Doctor
+              {t('pos.prescribing_doctor', 'Prescribing Doctor')}
             </label>
             <div className="relative">
               <input
@@ -693,7 +695,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                   const matched = doctorsList.find((d) => d.name === e.target.value);
                   if (matched && matched.regNo) setDoctorRegNo(matched.regNo);
                 }}
-                placeholder="Doctor Name or Select"
+                placeholder={t('pos.doctor_ph', 'Doctor Name or Select')}
                 className="w-full px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50 focus:bg-white"
               />
               <datalist id="doctors-datalist">
@@ -714,7 +716,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 title="Current bill draft is automatically preserved across sections"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Draft Active
+                {language === 'mr' ? 'मसुदा सुरू' : 'Draft Active'}
               </span>
             )}
 
@@ -725,7 +727,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
               className="px-2.5 py-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 text-xs font-semibold hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
             >
               <PauseCircle className="w-3.5 h-3.5" />
-              <span>Hold (F8)</span>
+              <span>{t('pos.hold_bill', 'Hold (F8)')}</span>
             </button>
 
             {heldBills.length > 0 && (
@@ -737,7 +739,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 className="px-2.5 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 flex items-center gap-1 shadow-sm animate-pulse"
               >
                 <PlayCircle className="w-3.5 h-3.5" />
-                <span>Resume ({heldBills.length})</span>
+                <span>{language === 'mr' ? `सुरू करा (${heldBills.length})` : `Resume (${heldBills.length})`}</span>
               </button>
             )}
 
@@ -747,7 +749,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
               className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 flex items-center gap-1"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>New Bill</span>
+              <span>{t('pos.new_bill', 'New Bill')}</span>
             </button>
           </div>
         </div>
@@ -783,7 +785,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 onFocus={() => {
                   if (searchQuery.trim()) setIsSearchOpen(true);
                 }}
-                placeholder="Press F4 to Search Medicine (Brand Name, Generic Salt, Barcode, or Rack)..."
+                placeholder={t('pos.search_medicine_ph', 'Press F4 to Search Medicine (Brand Name, Generic Salt, Barcode, or Rack)...')}
                 className="w-full pl-11 pr-24 py-3 bg-white text-slate-900 border-2 border-emerald-500 rounded-xl shadow-md text-base font-medium focus:ring-4 focus:ring-emerald-500/20 focus:outline-none placeholder:text-slate-400"
               />
               <div className="absolute right-3 flex items-center space-x-1.5">
@@ -906,9 +908,11 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           {/* Cart Table */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-900 text-white flex justify-between items-center text-xs font-bold">
-              <span className="uppercase tracking-wider">Cart Medicines ({cart.length} items)</span>
+              <span className="uppercase tracking-wider">
+                {t('pos.cart_title', 'CART MEDICINES')} ({cart.length} {t('pos.items', 'ITEMS')})
+              </span>
               <span className="text-slate-400 font-normal">
-                Use Enter or arrow keys to adjust quantities
+                {language === 'mr' ? 'प्रमाण बदलण्यासाठी Enter किंवा बाण कळा वापरा' : 'Use Enter or arrow keys to adjust quantities'}
               </span>
             </div>
 
@@ -917,9 +921,13 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
                   <Search className="w-8 h-8" />
                 </div>
-                <p className="text-base font-semibold text-slate-600">No items added to current bill</p>
+                <p className="text-base font-semibold text-slate-600">
+                  {t('pos.cart_empty', 'Cart is empty. Search and add medicines above (F4).')}
+                </p>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Type in the search bar above or press <kbd className="px-1.5 py-0.5 bg-slate-200 rounded font-mono text-slate-700">F4</kbd> to search medicines by brand name, salt, or scan barcode.
+                  {language === 'mr'
+                    ? 'औषधे शोधण्यासाठी वर सर्च बार वापरा किंवा F4 दाबा.'
+                    : 'Type in the search bar above or press F4 to search medicines by brand name, salt, or scan barcode.'}
                 </p>
               </div>
             ) : (
@@ -927,16 +935,16 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
-                      <th className="py-2.5 px-3">Medicine & Salt</th>
-                      <th className="py-2.5 px-2">Rack</th>
-                      <th className="py-2.5 px-2">Batch / Exp</th>
-                      <th className="py-2.5 px-2 text-center w-20">Qty</th>
-                      <th className="py-2.5 px-2 text-center w-14">Free</th>
-                      <th className="py-2.5 px-2 text-right">MRP</th>
-                      <th className="py-2.5 px-2 text-right">Rate</th>
-                      <th className="py-2.5 px-2 text-center w-16">Disc %</th>
-                      <th className="py-2.5 px-2 text-right">GST %</th>
-                      <th className="py-2.5 px-2 text-right">Total</th>
+                      <th className="py-2.5 px-3">{t('pos.col_med', 'Medicine & Salt')}</th>
+                      <th className="py-2.5 px-2">{t('pos.col_rack', 'Rack')}</th>
+                      <th className="py-2.5 px-2">{t('pos.col_batch', 'Batch')} / {t('pos.col_exp', 'Exp')}</th>
+                      <th className="py-2.5 px-2 text-center w-20">{t('pos.col_qty', 'Qty')}</th>
+                      <th className="py-2.5 px-2 text-center w-14">{language === 'mr' ? 'मोफत' : 'Free'}</th>
+                      <th className="py-2.5 px-2 text-right">{t('pos.col_mrp', 'MRP')}</th>
+                      <th className="py-2.5 px-2 text-right">{t('pos.col_rate', 'Rate')}</th>
+                      <th className="py-2.5 px-2 text-center w-16">{t('pos.col_disc', 'Disc %')}</th>
+                      <th className="py-2.5 px-2 text-right">{t('pos.col_gst', 'GST %')}</th>
+                      <th className="py-2.5 px-2 text-right">{t('pos.col_total', 'Total')}</th>
                       <th className="py-2.5 px-2 text-center w-8"></th>
                     </tr>
                   </thead>
@@ -1081,12 +1089,12 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3 sticky top-20">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2">
-              Bill Summary
+              {t('pos.bill_summary', 'Bill Summary')}
             </h3>
 
             {/* Quick Overall Discount Control */}
             <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-              <span className="font-semibold text-slate-700">Apply Bill Discount:</span>
+              <span className="font-semibold text-slate-700">{t('pos.apply_discount', 'Apply Bill Discount:')}</span>
               <div className="flex items-center space-x-1.5">
                 {[0, 5, 10, 15].map((pct) => (
                   <button
@@ -1107,37 +1115,37 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
             {/* Summary Line Items */}
             <div className="space-y-2 text-xs pt-1">
               <div className="flex justify-between text-slate-600">
-                <span>Total Items / Pieces:</span>
+                <span>{t('pos.total_items', 'Total Items / Pieces:')}</span>
                 <span className="font-mono font-bold text-slate-800">
-                  {cart.length} items ({cart.reduce((s, i) => s + i.qty, 0)} units)
+                  {cart.length} {language === 'mr' ? 'आयटम' : 'items'} ({cart.reduce((s, i) => s + i.qty, 0)} {language === 'mr' ? 'नग' : 'units'})
                 </span>
               </div>
 
               <div className="flex justify-between text-slate-600">
-                <span>Subtotal (Gross MRP):</span>
+                <span>{t('pos.subtotal', 'Subtotal (Gross MRP):')}</span>
                 <span className="font-mono font-semibold">{formatCurrency(subtotal, symbol)}</span>
               </div>
 
               {totalDiscount > 0 && (
                 <div className="flex justify-between text-emerald-600 font-semibold">
-                  <span>Total Discount:</span>
+                  <span>{t('pos.special_discount', 'Special Discount:')}</span>
                   <span className="font-mono">- {formatCurrency(totalDiscount, symbol)}</span>
                 </div>
               )}
 
               <div className="flex justify-between text-slate-600">
-                <span>Taxable Amount:</span>
+                <span>{t('pos.taxable_amount', 'Taxable Amount:')}</span>
                 <span className="font-mono">{formatCurrency(taxableAmount, symbol)}</span>
               </div>
 
               <div className="flex justify-between text-slate-600">
-                <span>Total GST (CGST+SGST):</span>
+                <span>{t('pos.gst_amount', 'GST (CGST + SGST):')}</span>
                 <span className="font-mono">{formatCurrency(totalGst, symbol)}</span>
               </div>
 
               {roundOff !== 0 && (
                 <div className="flex justify-between text-slate-500">
-                  <span>Round Off:</span>
+                  <span>{t('pos.round_off', 'Round Off:')}</span>
                   <span className="font-mono">{roundOff > 0 ? `+${roundOff}` : roundOff}</span>
                 </div>
               )}
@@ -1145,7 +1153,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
               {/* Big Grand Total Box */}
               <div className="mt-3 p-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 rounded-xl text-white shadow-md">
                 <div className="text-[11px] uppercase font-bold text-emerald-100 tracking-wider">
-                  Total Amount Payable
+                  {t('pos.grand_total', 'Total Amount Payable')}
                 </div>
                 <div className="text-3xl font-black font-mono tracking-tight mt-0.5">
                   {formatCurrency(grandTotal, symbol)}
@@ -1160,7 +1168,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
               className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-base rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
             >
               <CreditCard className="w-5 h-5" />
-              <span>SETTLE BILL & PAY (F9)</span>
+              <span>{language === 'mr' ? 'बिल सेटल व पेमेंट करा (F9)' : 'SETTLE BILL & PAY (F9)'}</span>
             </button>
 
             {/* Quick Keyboard Helpers */}
@@ -1200,14 +1208,14 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           {/* Payment Mode Selector */}
           <div>
             <label className="block text-xs font-bold uppercase text-slate-600 tracking-wider mb-2">
-              Select Payment Mode
+              {t('pos.payment_mode', 'Select Payment Mode')}
             </label>
             <div className="grid grid-cols-4 gap-2">
               {[
-                { id: 'cash', label: 'Cash', icon: Banknote },
-                { id: 'upi', label: 'UPI / QR', icon: QrCode },
-                { id: 'card', label: 'Card / POS', icon: CreditCard },
-                { id: 'credit', label: 'Khata (Due)', icon: User },
+                { id: 'cash', label: t('pos.cash', 'Cash'), icon: Banknote },
+                { id: 'upi', label: t('pos.upi', 'UPI / QR'), icon: QrCode },
+                { id: 'card', label: t('pos.card', 'Card / POS'), icon: CreditCard },
+                { id: 'credit', label: t('pos.khata', 'Khata (Due)'), icon: User },
               ].map((m) => {
                 const Icon = m.icon;
                 const isSelected = paymentMode === m.id;
@@ -1340,7 +1348,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
             onClick={closePaymentModal}
             className="px-4 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-200"
           >
-            Cancel
+            {t('common.cancel', 'Cancel')}
           </button>
 
           <button
@@ -1350,11 +1358,11 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
             className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-black shadow-md flex items-center gap-1.5 disabled:opacity-50"
           >
             {isSaving ? (
-              <span>Saving...</span>
+              <span>{t('common.loading', 'Saving...')}</span>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                <span>CONFIRM & PRINT BILL</span>
+                <span>{language === 'mr' ? 'बिल निश्चित व प्रिंट करा' : 'CONFIRM & PRINT BILL'}</span>
               </>
             )}
           </button>

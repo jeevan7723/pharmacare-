@@ -15,6 +15,7 @@ import { db } from '../db/db';
 import { Invoice, StoreSettings } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { PrintReceipt } from './PrintReceipt';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ReportsProps {
   settings: StoreSettings | null;
@@ -22,6 +23,7 @@ interface ReportsProps {
 
 export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [dateFilter, setDateFilter] = useState<'today' | '7days' | 'month' | 'all'>('month');
@@ -179,10 +181,10 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
           {/* Filter Pills */}
           <div className="bg-slate-100 p-1 rounded-xl flex space-x-1 text-xs font-bold text-slate-700">
             {[
-              { id: 'today', label: 'Today' },
-              { id: '7days', label: 'Last 7 Days' },
-              { id: 'month', label: 'This Month' },
-              { id: 'all', label: 'All Time' },
+              { id: 'today', label: t('reports.filter_today', 'Today') },
+              { id: '7days', label: t('reports.filter_7days', 'Last 7 Days') },
+              { id: 'month', label: t('reports.filter_month', 'This Month') },
+              { id: 'all', label: t('reports.filter_all', 'All Time') },
             ].map((f) => (
               <button
                 key={f.id}
@@ -201,7 +203,7 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5"
           >
             <Download className="w-4 h-4 text-emerald-400" />
-            <span>Export CSV</span>
+            <span>{t('reports.export_csv', 'Export CSV')}</span>
           </button>
         </div>
       </div>
@@ -211,21 +213,21 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
         {/* Total Sales Revenue */}
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Total Sales Revenue</span>
+            <span>{t('reports.total_revenue', 'Total Sales Revenue')}</span>
             <TrendingUp className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
             {formatCurrency(totalRevenue, symbol)}
           </div>
           <p className="text-[11px] text-emerald-700 font-medium mt-1">
-            {filteredInvoices.length} Bills Issued
+            {filteredInvoices.length} {language === 'mr' ? 'जारी केलेली बिले' : 'Bills Issued'}
           </p>
         </div>
 
         {/* Total Tax (GST) Collected */}
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>GST Tax Collected</span>
+            <span>{t('reports.gst_collected', 'GST Tax Collected')}</span>
             <Receipt className="w-4 h-4 text-teal-600" />
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">

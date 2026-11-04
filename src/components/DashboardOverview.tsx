@@ -20,6 +20,7 @@ import {
 import { db } from '../db/db';
 import { Medicine, Batch, Invoice, Customer, StoreSettings } from '../types';
 import { formatCurrency, formatDate, checkExpiryStatus } from '../utils/formatters';
+import { useLanguage } from '../context/LanguageContext';
 
 interface DashboardOverviewProps {
   settings: StoreSettings | null;
@@ -39,6 +40,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   heldBillsCount,
 }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -85,12 +87,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] uppercase font-bold tracking-wider">
-              Pharmacy POS Terminal
+              {t('dash.terminal_badge', 'Pharmacy POS Terminal')}
             </span>
-            <span className="text-slate-400 text-xs">&bull; {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span className="text-slate-400 text-xs">
+              &bull; {new Date().toLocaleDateString(language === 'mr' ? 'mr-IN' : 'en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            </span>
           </div>
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-white mt-1">
-            Welcome to {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HealthPlus Pharmacy'}
+            {t('dash.welcome', 'Welcome to')} {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HealthPlus Pharmacy'}
           </h1>
           <p className="text-xs text-slate-300 mt-1 max-w-xl">
             {settings?.tagline || 'Manage fast counter sales, drug batches, wholesaler purchases, and customer credit.'}
@@ -109,10 +113,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-red-900">
-                    {expiredCount} Medicine Batch{expiredCount > 1 ? 'es are' : ' is'} EXPIRED!
+                    {expiredCount} {t('dash.expired_alert_title', 'Medicine Batch is EXPIRED!')}
                   </h4>
                   <p className="text-[11px] text-red-700">
-                    Drug compliance required: pull these packs off shelves and create a distributor return sheet.
+                    {t('dash.expired_alert_desc', 'Drug compliance required: pull these packs off shelves and create a distributor return sheet.')}
                   </p>
                 </div>
               </div>
@@ -120,7 +124,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 onClick={() => setActiveTab('alerts')}
                 className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1"
               >
-                <span>Inspect</span>
+                <span>{t('dash.inspect', 'Inspect')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -134,10 +138,10 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-amber-900">
-                    {lowStockCount} Medicine{lowStockCount > 1 ? 's are' : ''} Running Low on Stock
+                    {lowStockCount} {language === 'mr' ? 'औषधांचा साठा कमी झाला आहे' : `Medicine${lowStockCount > 1 ? 's are' : ''} Running Low on Stock`}
                   </h4>
                   <p className="text-[11px] text-amber-700">
-                    Stock count has fallen below minimum alert threshold.
+                    {language === 'mr' ? 'किमान साठा मर्यादेपेक्षा कमी औषधे शिल्लक आहेत.' : 'Stock count has fallen below minimum alert threshold.'}
                   </p>
                 </div>
               </div>
@@ -145,7 +149,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 onClick={() => setActiveTab('alerts')}
                 className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1"
               >
-                <span>Re-order</span>
+                <span>{language === 'mr' ? 'पुनर्नोंद करा' : 'Re-order'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -158,7 +162,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         {/* Today's Sales */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-emerald-500 transition-colors">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Today's Counter Sales</span>
+            <span>{t('dash.today_sales', "Today's Counter Sales")}</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
@@ -167,14 +171,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {formatCurrency(todayRevenue, symbol)}
           </div>
           <p className="text-[11px] text-emerald-700 font-semibold mt-1">
-            {todayInvoices.length} Bills issued today
+            {todayInvoices.length} {t('dash.bills_today', 'Bills issued today')}
           </p>
         </div>
 
         {/* Month Sales */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-emerald-500 transition-colors">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>This Month's Sales</span>
+            <span>{t('dash.month_sales', "This Month's Sales")}</span>
             <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
               <Receipt className="w-4 h-4" />
             </div>
@@ -183,30 +187,30 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {formatCurrency(monthRevenue, symbol)}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {monthInvoices.length} Bills in {new Date().toLocaleString('default', { month: 'short' })}
+            {monthInvoices.length} {t('dash.bills_in', 'Bills in')} {new Date().toLocaleString(language === 'mr' ? 'mr-IN' : 'default', { month: 'short' })}
           </p>
         </div>
 
         {/* Total Stock in Store */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-emerald-500 transition-colors">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Inventory in Store</span>
+            <span>{t('dash.inventory_in_store', 'Inventory in Store')}</span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <Package className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
-            {medicines.length} Medicines
+            {medicines.length} {t('dash.medicines', 'Medicines')}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {batches.length} Batches ({totalStockUnits.toLocaleString()} units in stock)
+            {batches.length} {t('dash.batches', 'Batches')} ({totalStockUnits.toLocaleString()} {t('dash.units_in_stock', 'units in stock')})
           </p>
         </div>
 
         {/* Khata Credit Outstanding */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-emerald-500 transition-colors">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Khata Credit Due</span>
+            <span>{t('dash.khata_due', 'Khata Credit Due')}</span>
             <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
               <Users className="w-4 h-4" />
             </div>
@@ -215,7 +219,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {formatCurrency(totalKhataDebt, symbol)}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            Due from <strong>{customersWithDebt}</strong> neighborhood patients
+            {t('dash.due_from', 'Due from')} <strong>{customersWithDebt}</strong> {t('dash.patients', 'patients')}
           </p>
         </div>
       </div>
@@ -223,7 +227,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       {/* Quick Action Station */}
       <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-600">
-          Quick Operations Station
+          {t('dash.quick_station', 'Quick Operations Station')}
         </h3>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -234,8 +238,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center mb-2 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
               <ShoppingCart className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">Counter POS</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Press F2 for New Bill</div>
+            <div className="text-xs font-bold text-slate-900">{t('dash.counter_pos', 'Counter POS')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.counter_pos_desc', 'Press F2 for New Bill')}</div>
           </button>
 
           <button
@@ -245,8 +249,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center mb-2 group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <Package className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">Add Medicine</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Manage master catalogue</div>
+            <div className="text-xs font-bold text-slate-900">{t('dash.add_medicine', 'Add Medicine')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.add_medicine_desc', 'Manage master catalogue')}</div>
           </button>
 
           <button
@@ -256,8 +260,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center mb-2 group-hover:bg-purple-600 group-hover:text-white transition-colors">
               <Truck className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">Stock Inward</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Distributor purchase bill</div>
+            <div className="text-xs font-bold text-slate-900">{t('dash.stock_inward', 'Stock Inward')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.stock_inward_desc', 'Distributor purchase bill')}</div>
           </button>
 
           <button
@@ -267,8 +271,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center mb-2 group-hover:bg-amber-600 group-hover:text-white transition-colors">
               <DollarSign className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">Receive Khata</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Patient payment receipt</div>
+            <div className="text-xs font-bold text-slate-900">{t('dash.receive_khata', 'Receive Khata')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.receive_khata_desc', 'Patient payment receipt')}</div>
           </button>
 
           <button
@@ -278,8 +282,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center mb-2 group-hover:bg-teal-600 group-hover:text-white transition-colors">
               <Receipt className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">GST Reports</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">GSTR-1 tax summary</div>
+            <div className="text-xs font-bold text-slate-900">{t('dash.gst_reports', 'GST Reports')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.gst_reports_desc', 'GSTR-1 tax summary')}</div>
           </button>
 
           <button
@@ -289,8 +293,8 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center mb-2 group-hover:bg-slate-900 group-hover:text-white transition-colors">
               <FileText className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">Backup DB</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">Download full JSON data</div>
+            <div className="text-xs font-bold text-slate-900">{t('dash.backup_db', 'Backup DB')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.backup_db_desc', 'Download full JSON data')}</div>
           </button>
         </div>
       </div>
@@ -302,13 +306,13 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Receipt className="w-4 h-4 text-emerald-600" />
-              <span>Recent Counter Bills</span>
+              <span>{t('dash.recent_bills', 'Recent Counter Bills')}</span>
             </h3>
             <button
               onClick={() => setActiveTab('reports')}
               className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
             >
-              <span>View All Register</span>
+              <span>{t('dash.view_all_register', 'View All Register')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -317,19 +321,19 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                 <tr>
-                  <th className="py-2.5 px-3">Bill No</th>
-                  <th className="py-2.5 px-2">Time</th>
-                  <th className="py-2.5 px-2">Patient</th>
-                  <th className="py-2.5 px-2 text-center">Items</th>
-                  <th className="py-2.5 px-2 text-center">Payment</th>
-                  <th className="py-2.5 px-3 text-right">Amount</th>
+                  <th className="py-2.5 px-3">{t('dash.col_bill_no', 'Bill No')}</th>
+                  <th className="py-2.5 px-2">{language === 'mr' ? 'वेळ' : 'Time'}</th>
+                  <th className="py-2.5 px-2">{t('dash.col_patient', 'Patient / Customer')}</th>
+                  <th className="py-2.5 px-2 text-center">{t('dash.col_items', 'Items')}</th>
+                  <th className="py-2.5 px-2 text-center">{t('dash.col_payment', 'Payment')}</th>
+                  <th className="py-2.5 px-3 text-right">{t('dash.col_total', 'Amount')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-sans">
                 {invoices.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-slate-400">
-                      No invoices created yet. Start a bill by clicking "Quick New Bill".
+                      {t('dash.no_bills', 'No bills recorded yet. Issue your first counter bill using Quick New Bill (F2).')}
                     </td>
                   </tr>
                 ) : (

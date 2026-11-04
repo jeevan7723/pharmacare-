@@ -14,6 +14,7 @@ import {
 import { db } from '../db/db';
 import { Medicine, Batch, StoreSettings } from '../types';
 import { formatCurrency, checkExpiryStatus } from '../utils/formatters';
+import { useLanguage } from '../context/LanguageContext';
 
 interface ExpiryAlertsProps {
   settings: StoreSettings | null;
@@ -22,6 +23,7 @@ interface ExpiryAlertsProps {
 
 export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   const [activeTab, setActiveTab] = useState<'expired' | 'critical' | 'warning' | 'lowstock'>('expired');
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -85,10 +87,12 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
-            Drug Expiry & Low Stock Watchtower
+            {t('alerts.title', 'Drug Expiry & Low Stock Watchtower')}
           </h2>
           <p className="text-xs text-slate-500">
-            Mandatory pharmacy compliance: monitor drug expiration dates and generate distributor return sheets.
+            {language === 'mr'
+              ? 'औषध नियम पूर्तता: औषध मुदत संपणे निरीक्षण करा आणि सप्लायर रिटर्न शीट तयार करा.'
+              : 'Mandatory pharmacy compliance: monitor drug expiration dates and generate distributor return sheets.'}
           </p>
         </div>
 
@@ -98,7 +102,7 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
             className="px-3.5 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 shadow-sm"
           >
             <Printer className="w-4 h-4 text-slate-500" />
-            <span>Print Return Sheet</span>
+            <span>{t('alerts.print_sheet', 'Print Return Sheet')}</span>
           </button>
         </div>
       </div>

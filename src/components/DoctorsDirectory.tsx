@@ -3,8 +3,10 @@ import { UserCheck, Plus, Search, Stethoscope, Phone, Building, X, Trash2, Edit2
 import { db } from '../db/db';
 import { Doctor } from '../types';
 import { syncDoctorToCloud, deleteDoctorFromCloud } from '../firebase/firestoreService';
+import { useLanguage } from '../context/LanguageContext';
 
 export const DoctorsDirectory: React.FC = () => {
+  const { t, language } = useLanguage();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [search, setSearch] = useState('');
 
@@ -94,10 +96,12 @@ export const DoctorsDirectory: React.FC = () => {
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-emerald-600" />
-            Doctors & Prescribers Directory
+            {t('doctors.title', 'Doctors & Prescribers Directory')}
           </h2>
           <p className="text-xs text-slate-500">
-            Maintain local doctors, clinics, and medical registration numbers for printing on prescription invoices.
+            {language === 'mr'
+              ? 'स्थानिक डॉक्टर, दवाखाने आणि वैद्यकीय नोंदणी क्रमांक (Reg No) व्यवस्थापित करा.'
+              : 'Maintain local doctors, clinics, and medical registration numbers for printing on prescription invoices.'}
           </p>
         </div>
 
@@ -107,7 +111,7 @@ export const DoctorsDirectory: React.FC = () => {
             className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            <span>Add Doctor</span>
+            <span>{t('doctors.add', 'Add Doctor')}</span>
           </button>
         </div>
       </div>

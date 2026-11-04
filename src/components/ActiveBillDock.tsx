@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useBillingDraft } from '../context/BillingDraftContext';
+import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency } from '../utils/formatters';
 
 interface ActiveBillDockProps {
@@ -42,6 +43,7 @@ export const ActiveBillDock: React.FC<ActiveBillDockProps> = ({
   } = useBillingDraft();
 
   const [isExpanded, setIsExpanded] = useState(false);
+  const { language } = useLanguage();
 
   // Only display when outside POS and there is an active draft
   if (activeTab === 'billing' || !hasActiveDraft) return null;
@@ -143,7 +145,7 @@ export const ActiveBillDock: React.FC<ActiveBillDockProps> = ({
           {/* Cart Items & Total Amount */}
           <div className="text-right">
             <div className="text-[11px] text-slate-400">
-              <span>{cart.length} items ({totalQty} units)</span>
+              <span>{cart.length} {language === 'mr' ? 'आयटम' : 'items'} ({totalQty} {language === 'mr' ? 'नग' : 'units'})</span>
             </div>
             <div className="text-base font-black font-mono text-emerald-400 leading-none">
               {formatCurrency(grandTotal, symbol)}
@@ -158,7 +160,7 @@ export const ActiveBillDock: React.FC<ActiveBillDockProps> = ({
               title={isExpanded ? 'Hide items' : 'View cart items'}
             >
               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-              <span className="hidden xl:inline">{isExpanded ? 'Hide Items' : 'View Items'}</span>
+              <span className="hidden xl:inline">{isExpanded ? (language === 'mr' ? 'लपवा' : 'Hide Items') : (language === 'mr' ? 'आयटम पहा' : 'View Items')}</span>
             </button>
           )}
 
@@ -170,7 +172,7 @@ export const ActiveBillDock: React.FC<ActiveBillDockProps> = ({
               className="px-2.5 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold flex items-center gap-1 transition-all"
             >
               <PauseCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Hold</span>
+              <span className="hidden sm:inline">{language === 'mr' ? 'होल्ड' : 'Hold'}</span>
             </button>
           )}
 
@@ -190,7 +192,7 @@ export const ActiveBillDock: React.FC<ActiveBillDockProps> = ({
             title="Return to Point of Sale (F2)"
           >
             <ShoppingCart className="w-4 h-4" />
-            <span>Resume Bill (POS)</span>
+            <span>{language === 'mr' ? 'बिल सुरू करा (POS)' : 'Resume Bill (POS)'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>

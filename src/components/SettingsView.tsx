@@ -28,6 +28,7 @@ import {
   downloadCloudDatabaseToLocal,
   syncSettingsToCloud,
 } from '../firebase/firestoreService';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SettingsProps {
   settings: StoreSettings | null;
@@ -35,6 +36,7 @@ interface SettingsProps {
 }
 
 export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSettings }) => {
+  const { t, language } = useLanguage();
   const [formData, setFormData] = useState<StoreSettings>({
     storeName: '',
     tagline: '',
@@ -185,10 +187,12 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Settings className="w-5 h-5 text-emerald-600" />
-            Pharmacy Store Profile & Invoicing Settings
+            {t('settings.title', 'Pharmacy Store Profile & Invoicing Settings')}
           </h2>
           <p className="text-xs text-slate-500">
-            Configure your Medical Store Drug License numbers, GSTIN, UPI payment QR details, and database backups.
+            {language === 'mr'
+              ? 'औषध परवाना क्रमांक, GSTIN, UPI QR पेमेंट माहिती आणि डेटा बॅकअप सेट करा.'
+              : 'Configure your Medical Store Drug License numbers, GSTIN, UPI payment QR details, and database backups.'}
           </p>
         </div>
 

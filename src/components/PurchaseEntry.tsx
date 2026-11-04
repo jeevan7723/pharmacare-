@@ -14,6 +14,7 @@ import { db } from '../db/db';
 import { Medicine, Supplier, PurchaseOrder, PurchaseItem, Batch, StoreSettings } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { syncPurchaseToCloud, syncBatchToCloud } from '../firebase/firestoreService';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PurchaseEntryProps {
   settings: StoreSettings | null;
@@ -22,6 +23,7 @@ interface PurchaseEntryProps {
 
 export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -255,10 +257,12 @@ export const PurchaseEntry: React.FC<PurchaseEntryProps> = ({ settings, onRefres
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Truck className="w-5 h-5 text-emerald-600" />
-            Stock Inward & Purchase Entry
+            {t('purchase.title', 'Stock Inward & Purchase Entry')}
           </h2>
           <p className="text-xs text-slate-500">
-            Record incoming shipments from distributors. Automatically updates inventory batches and stock counts.
+            {language === 'mr'
+              ? 'वितरकांकडून खरेदी नोंदवा. साठा आणि बॅचेस आपोआप अपडेट होतात.'
+              : 'Record incoming shipments from distributors. Automatically updates inventory batches and stock counts.'}
           </p>
         </div>
       </div>

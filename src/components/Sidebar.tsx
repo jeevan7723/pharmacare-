@@ -15,9 +15,11 @@ import {
   PlusCircle,
   Database,
   ExternalLink,
+  Languages,
 } from 'lucide-react';
 import { StoreSettings } from '../types';
 import { useBillingDraft } from '../context/BillingDraftContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -44,26 +46,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const totalAlerts = expiredCount + criticalExpiryCount + lowStockCount;
   const { cart, hasActiveDraft } = useBillingDraft();
+  const { language, setLanguage, toggleLanguage, t } = useLanguage();
 
   const navGroups = [
     {
-      title: 'Point of Sale',
+      title: t('sidebar.group_pos', 'Point of Sale'),
       items: [
         {
           id: 'dashboard',
-          label: 'Dashboard Home',
+          label: t('sidebar.nav_dashboard', 'Dashboard Home'),
           icon: LayoutDashboard,
           shortcut: '',
         },
         {
           id: 'billing',
-          label: 'Billing POS',
+          label: t('sidebar.nav_billing', 'Billing POS'),
           icon: ShoppingCart,
           shortcut: 'F2',
           badge: hasActiveDraft
-            ? `${cart.length} in cart`
+            ? `${cart.length} ${t('sidebar.in_cart', 'in cart')}`
             : heldBillsCount > 0
-            ? `${heldBillsCount} Held`
+            ? `${heldBillsCount} ${t('sidebar.held', 'Held')}`
             : null,
           badgeColor: hasActiveDraft
             ? 'bg-emerald-500 text-white font-black animate-pulse'
@@ -72,22 +75,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      title: 'Inventory & Stock',
+      title: t('sidebar.group_inventory', 'Inventory & Stock'),
       items: [
         {
           id: 'inventory',
-          label: 'Medicines & Racks',
+          label: t('sidebar.nav_inventory', 'Medicines & Racks'),
           icon: Package,
           shortcut: 'F3',
         },
         {
           id: 'purchase',
-          label: 'Stock Inward (Purchase)',
+          label: t('sidebar.nav_purchase', 'Stock Inward (Purchase)'),
           icon: Truck,
         },
         {
           id: 'alerts',
-          label: 'Expiry & Low Stock',
+          label: t('sidebar.nav_alerts', 'Expiry & Low Stock'),
           icon: AlertTriangle,
           badge: totalAlerts > 0 ? `${totalAlerts}` : null,
           badgeColor: expiredCount > 0 ? 'bg-red-500 text-white animate-pulse' : 'bg-amber-500 text-white',
@@ -95,31 +98,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      title: 'Accounts & People',
+      title: t('sidebar.group_accounts', 'Accounts & People'),
       items: [
         {
           id: 'customers',
-          label: 'Customer Khata (Credit)',
+          label: t('sidebar.nav_customers', 'Customer Khata (Credit)'),
           icon: Users,
         },
         {
           id: 'doctors',
-          label: 'Doctors Directory',
+          label: t('sidebar.nav_doctors', 'Doctors Directory'),
           icon: UserCheck,
         },
       ],
     },
     {
-      title: 'Management',
+      title: t('sidebar.group_management', 'Management'),
       items: [
         {
           id: 'reports',
-          label: 'Sales & GST Reports',
+          label: t('sidebar.nav_reports', 'Sales & GST Reports'),
           icon: BarChart3,
         },
         {
           id: 'settings',
-          label: 'Store Settings',
+          label: t('sidebar.nav_settings', 'Store Settings'),
           icon: Settings,
         },
       ],
@@ -148,7 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HEALTHPLUS PHARMACY'}
               </h1>
               <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider truncate">
-                Medical Store POS
+                {t('sidebar.tagline', 'Medical Store POS')}
               </p>
             </div>
           )}
@@ -179,7 +182,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center gap-2">
             <PlusCircle className="w-4 h-4 shrink-0" />
             {!isCollapsed && (
-              <span>{hasActiveDraft ? `Resume Bill (${cart.length})` : 'Quick New Bill'}</span>
+              <span>
+                {hasActiveDraft
+                  ? `${t('sidebar.resume_bill', 'Resume Bill')} (${cart.length})`
+                  : t('sidebar.quick_new_bill', 'Quick New Bill')}
+              </span>
             )}
           </div>
           {!isCollapsed && (
@@ -251,6 +258,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ))}
       </nav>
+
+      {/* Language Switcher in Sidebar */}
+      <div className="p-3 border-t border-slate-800/80 bg-slate-900/60">
+        {isCollapsed ? (
+          <button
+            type="button"
+            onClick={toggleLanguage}
+            className="w-full py-2 flex flex-col items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors"
+            title={language === 'en' ? 'मराठीत बदला' : 'Switch to English'}
+          >
+            <Languages className="w-4 h-4 text-emerald-400" />
+            <span className="text-[10px] font-bold mt-0.5 text-emerald-400">
+              {language === 'en' ? 'EN' : 'मराठी'}
+            </span>
+          </button>
+        ) : (
+          <div className="flex items-center justify-between px-2 py-1.5 rounded-xl bg-slate-800/90 border border-slate-700/60">
+            <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold">
+              <Languages className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{t('common.language', 'Language')}</span>
+            </div>
+            <div className="flex items-center bg-slate-900 p-0.5 rounded-lg border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-2 py-0.5 text-[11px] font-bold rounded transition-all ${
+                  language === 'en'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('mr')}
+                className={`px-2 py-0.5 text-[11px] font-bold rounded transition-all ${
+                  language === 'mr'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                मराठी
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </aside>
   );
 };

@@ -17,6 +17,7 @@ import {
 import { db } from '../db/db';
 import { Medicine, Batch, MedicineCategory, ScheduleType, StoreSettings } from '../types';
 import { formatCurrency, checkExpiryStatus } from '../utils/formatters';
+import { useLanguage } from '../context/LanguageContext';
 import {
   syncMedicineToCloud,
   deleteMedicineFromCloud,
@@ -47,6 +48,7 @@ interface InventoryProps {
 
 export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -258,10 +260,10 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Package className="w-5 h-5 text-emerald-600" />
-            Pharmacy Inventory & Rack Locator
+            {t('inv.title', 'Pharmacy Inventory & Rack Locator')}
           </h2>
           <p className="text-xs text-slate-500">
-            {medicines.length} Medicines &bull; {batches.length} Stock Batches in Store
+            {medicines.length} {t('dash.medicines', 'Medicines')} &bull; {batches.length} {t('dash.batches', 'Batches')} {t('dash.units_in_stock', 'units in stock')}
           </p>
         </div>
 
@@ -271,7 +273,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>Add New Medicine Master</span>
+            <span>{t('inv.add_medicine', 'Add New Medicine Master')}</span>
           </button>
         </div>
       </div>

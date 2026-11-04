@@ -10,9 +10,11 @@ import {
   CheckCircle2,
   Cloud,
   ArrowLeft,
+  Languages,
 } from 'lucide-react';
 import { StoreSettings } from '../types';
 import { useBillingDraft } from '../context/BillingDraftContext';
+import { useLanguage } from '../context/LanguageContext';
 import { formatCurrency } from '../utils/formatters';
 
 interface TopHeaderProps {
@@ -22,45 +24,6 @@ interface TopHeaderProps {
   onToggleMobileMenu?: () => void;
 }
 
-const TAB_TITLES: { [key: string]: { title: string; subtitle: string } } = {
-  dashboard: {
-    title: 'Pharmacy Operations Dashboard',
-    subtitle: 'Daily financial summary, fast actions, and inventory alerts',
-  },
-  billing: {
-    title: 'Point of Sale (POS) Billing',
-    subtitle: 'Rapid medicine checkout, batch auto-FEFO, and payment settlement',
-  },
-  inventory: {
-    title: 'Drug Inventory & Shelf Locator',
-    subtitle: 'Medicine masters, batch tracking, expiry monitoring, and rack positions',
-  },
-  purchase: {
-    title: 'Stock Inward (Purchase)',
-    subtitle: 'Inward entry from pharmaceutical distributors & automatic stock increment',
-  },
-  alerts: {
-    title: 'Expiry & Low Stock Watchtower',
-    subtitle: 'Mandatory drug compliance, expired stock returns, and replenishment orders',
-  },
-  customers: {
-    title: 'Customer Khata (Credit Ledger)',
-    subtitle: 'Patient ledger accounts, credit debt tracking, and installment collections',
-  },
-  doctors: {
-    title: 'Prescribing Doctors Directory',
-    subtitle: 'Doctor registration numbers, clinics, and specializations',
-  },
-  reports: {
-    title: 'Sales & GST Tax Reports',
-    subtitle: 'GSTR-1 tax slab breakdown, profit analytics, and sales registers',
-  },
-  settings: {
-    title: 'Store Settings & Backups',
-    subtitle: 'Drug License 20B/21B, GSTIN, UPI QR configuration, and full database backups',
-  },
-};
-
 export const TopHeader: React.FC<TopHeaderProps> = ({
   activeTab,
   setActiveTab,
@@ -69,6 +32,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 }) => {
   const [time, setTime] = useState(new Date());
   const { cart, grandTotal, hasActiveDraft, customerName } = useBillingDraft();
+  const { language, setLanguage, toggleLanguage, t, getTabInfo } = useLanguage();
   const symbol = settings?.currencySymbol || '₹';
 
   useEffect(() => {
@@ -76,10 +40,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const currentInfo = TAB_TITLES[activeTab] || {
-    title: 'PharmaCare Pro',
-    subtitle: 'Pharmacy Management & Billing System',
-  };
+  const currentInfo = getTabInfo(activeTab);
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
@@ -103,7 +64,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             title="Exit to Dashboard Home"
           >
             <ArrowLeft className="w-4 h-4 text-slate-600" />
-            <span>Exit Section</span>
+            <span>{t('header.exit_section', 'Exit Section')}</span>
           </button>
         )}
 
@@ -117,29 +78,62 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: Badges, Shortcuts & Clock */}
+      {/* Right: Language Switcher, Badges, Shortcuts & Clock */}
       <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+        {/* Language Change Button: English to Marathi */}
+        <div
+          className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 shadow-2xs"
+          title={language === 'en' ? 'मराठी भाषेत बदला (Switch to Marathi)' : 'Switch to English (इंग्रजीत बदला)'}
+        >
+          <button
+            type="button"
+            onClick={() => setLanguage('en')}
+            className={`px-2 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${
+              language === 'en'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Languages className="w-3.5 h-3.5" />
+            <span>EN</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage('mr')}
+            className={`px-2 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${
+              language === 'mr'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <span>मराठी</span>
+          </button>
+        </div>
+
         {/* Keyboard Shortcuts Indicator */}
         <div className="hidden xl:flex items-center space-x-1.5 text-[10px] text-slate-500 font-medium">
           <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-slate-700">
-            F2 New
+            {t('header.f2_new', 'F2 New')}
           </span>
           <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-slate-700">
-            F4 Search
+            {t('header.f4_search', 'F4 Search')}
           </span>
           <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-slate-700">
-            F8 Hold
+            {t('header.f8_hold', 'F8 Hold')}
           </span>
           <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-slate-700">
-            F9 Pay
+            {t('header.f9_pay', 'F9 Pay')}
           </span>
         </div>
 
         {/* Cloud Status Badge */}
-        <div className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 font-medium" title="Realtime Firebase live sync active on all operations">
+        <div
+          className="hidden lg:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 font-medium"
+          title="Realtime Firebase live sync active on all operations"
+        >
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           <Cloud className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Live Sync Active</span>
+          <span>{t('header.live_sync_active', 'Live Sync Active')}</span>
         </div>
 
         {/* Drug License Badge */}
@@ -147,7 +141,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <div className="hidden md:flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-800 font-medium">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             <span>
-              DL: <strong className="font-mono">{settings.dlNo1}</strong>
+              {t('header.dl_badge', 'DL')}: <strong className="font-mono">{settings.dlNo1}</strong>
             </span>
           </div>
         )}
@@ -173,8 +167,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <ShoppingCart className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">
               {hasActiveDraft
-                ? `Resume Bill (${customerName.trim() || `${cart.length} items`} • ${formatCurrency(grandTotal, symbol)})`
-                : 'Go to POS'}
+                ? `${t('header.resume_bill', 'Resume Bill')} (${customerName.trim() || `${cart.length} items`} • ${formatCurrency(grandTotal, symbol)})`
+                : t('header.go_to_pos', 'Go to POS')}
             </span>
           </button>
         )}

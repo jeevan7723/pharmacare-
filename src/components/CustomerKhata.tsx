@@ -37,6 +37,7 @@ import {
   syncAllBillingAndPaymentsToCloud,
 } from '../firebase/firestoreService';
 import { PrintReceipt } from './PrintReceipt';
+import { useLanguage } from '../context/LanguageContext';
 
 interface CustomerKhataProps {
   settings: StoreSettings | null;
@@ -49,6 +50,7 @@ const DEMO_INVOICE_IDS = ['inv-demo-01', 'INV-2026-0001'];
 
 export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefreshStats }) => {
   const symbol = settings?.currencySymbol || '₹';
+  const { t, language } = useLanguage();
 
   // Sub-tabs: 'customers' (Directory & Ledgers) vs 'all-bills' (All Store Bills Register)
   const [activeTab, setActiveTab] = useState<'customers' | 'all-bills'>('customers');
@@ -397,13 +399,13 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
           <div className="flex flex-wrap items-center gap-2">
             <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center gap-1.5">
               <Receipt className="w-4 h-4 text-emerald-600" />
-              <span className="text-emerald-800 font-semibold">Total Stored Bills: </span>
-              <strong className="text-emerald-950 font-mono">{invoices.length} Bills</strong>
+              <span className="text-emerald-800 font-semibold">{t('khata.total_bills', 'Total Stored Bills: ')}</span>
+              <strong className="text-emerald-950 font-mono">{invoices.length} {language === 'mr' ? 'बिले' : 'Bills'}</strong>
             </div>
 
             <div className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs flex items-center gap-1.5">
               <DollarSign className="w-4 h-4 text-red-600" />
-              <span className="text-red-700 font-semibold">Total Khata Due: </span>
+              <span className="text-red-700 font-semibold">{t('khata.total_due', 'Total Khata Due: ')}</span>
               <strong className="text-red-800 text-sm font-mono">{formatCurrency(totalOutstanding, symbol)}</strong>
             </div>
 
@@ -415,7 +417,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
               title="Sync all billing and payment records directly to Firebase Cloud"
             >
               <CloudUpload className={`w-4 h-4 text-blue-600 ${isSyncingCloud ? 'animate-bounce' : ''}`} />
-              <span>{isSyncingCloud ? 'Syncing...' : 'Sync to Firebase'}</span>
+              <span>{isSyncingCloud ? (language === 'mr' ? 'सिंक होत आहे...' : 'Syncing...') : t('khata.sync_firebase', 'Sync to Firebase')}</span>
             </button>
 
             <button
@@ -426,7 +428,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
             >
               <Plus className="w-4 h-4" />
-              <span>Add Customer</span>
+              <span>{t('khata.add_customer', 'Add Customer')}</span>
             </button>
 
             <button
