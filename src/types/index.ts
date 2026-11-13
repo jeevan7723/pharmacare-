@@ -176,7 +176,7 @@ export interface CustomerPayment {
   customerName: string;
   date: string;
   amount: number;
-  paymentMode: 'cash' | 'upi' | 'card';
+  paymentMode: 'cash' | 'upi' | 'card' | 'split';
   referenceNo?: string;
   notes?: string;
 }

@@ -135,13 +135,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }`}
     >
       {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
+      <div
+        className={`border-b border-slate-800/80 flex transition-all ${
+          isCollapsed
+            ? 'flex-col items-center justify-center py-3 px-2 gap-2 relative group/header'
+            : 'items-center justify-between p-4'
+        }`}
+      >
         <div
-          className="flex items-center space-x-3 cursor-pointer overflow-hidden"
+          className={`flex items-center cursor-pointer ${
+            isCollapsed ? 'justify-center relative group' : 'space-x-3 overflow-hidden min-w-0'
+          }`}
           onClick={() => setActiveTab('dashboard')}
-          title={settings?.storeName || 'PharmaCare Pro'}
+          title={settings?.storeName || 'HealthPlus Pharmacy'}
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black shrink-0 hover:scale-105 transition-transform">
             <Pill className="w-5 h-5 transform -rotate-45" />
           </div>
           {!isCollapsed && (
@@ -154,11 +162,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </p>
             </div>
           )}
+
+          {/* Popover tooltip when collapsed */}
+          {isCollapsed && (
+            <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50 whitespace-nowrap font-bold border border-slate-700">
+              {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HEALTHPLUS PHARMACY'}
+            </div>
+          )}
         </div>
 
         <button
+          type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+          className={`text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center ${
+            isCollapsed ? 'w-8 h-6 hover:bg-slate-800/80 text-slate-400' : 'p-1.5'
+          }`}
           title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

@@ -33,6 +33,7 @@ import {
   StoreSettings,
   HeldBill,
   PaymentMode,
+  CustomerPayment,
 } from '../types';
 import {
   formatCurrency,
@@ -41,7 +42,12 @@ import {
   generateUpiQrUri,
 } from '../utils/formatters';
 import { PrintReceipt } from './PrintReceipt';
-import { syncInvoiceToCloud, syncBatchToCloud, syncCustomerToCloud } from '../firebase/firestoreService';
+import {
+  syncInvoiceToCloud,
+  syncBatchToCloud,
+  syncCustomerToCloud,
+  syncCustomerPaymentToCloud,
+} from '../firebase/firestoreService';
 import { useBillingDraft } from '../context/BillingDraftContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -574,8 +580,8 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
         createdYearMonth: currentYearMonth,
       };
 
-      // Deduct stock from batches
-      await db.transaction('rw', [db.batches, db.invoices], async () => {
+      // Deduct stock from batches and save invoice + customer payment
+      await db.transaction('rw', [db.batches, db.invoices, db.customerPayments], async () => {
         for (const item of cart) {
           const totalDeduct = item.qty + item.freeQty;
           const batch = await db.batches.get(item.batchId);
@@ -585,10 +591,38 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           }
         }
         await db.invoices.put(newInvoice);
+
+        // Record customer payment entry if money was paid
+        if (paid > 0) {
+          const paymentRecord: CustomerPayment = {
+            id: `pay-${newInvoice.id}`,
+            customerId: custId || 'walk-in',
+            customerName: newInvoice.customerName,
+            date: dateStr,
+            amount: paid,
+            paymentMode: (paymentMode === 'credit' ? 'cash' : (paymentMode as any)) || 'cash',
+            referenceNo: invoiceNo,
+            notes: `Invoice payment for ${invoiceNo}`,
+          };
+          await db.customerPayments.put(paymentRecord);
+        }
       });
 
       // Synchronize with Firebase Cloud Firestore in background
       syncInvoiceToCloud(newInvoice);
+      if (paid > 0) {
+        const paymentRecord: CustomerPayment = {
+          id: `pay-${newInvoice.id}`,
+          customerId: custId || 'walk-in',
+          customerName: newInvoice.customerName,
+          date: dateStr,
+          amount: paid,
+          paymentMode: (paymentMode === 'credit' ? 'cash' : (paymentMode as any)) || 'cash',
+          referenceNo: invoiceNo,
+          notes: `Invoice payment for ${invoiceNo}`,
+        };
+        syncCustomerPaymentToCloud(paymentRecord);
+      }
       for (const item of cart) {
         db.batches.get(item.batchId).then((b) => {
           if (b) syncBatchToCloud(b);

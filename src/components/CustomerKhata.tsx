@@ -34,7 +34,9 @@ import {
   syncCustomerPaymentToCloud,
   deleteCustomerFromCloud,
   deleteInvoiceFromCloud,
+  deleteCustomerPaymentFromCloud,
   syncAllBillingAndPaymentsToCloud,
+  backfillInvoicePaymentsToLocalDb,
 } from '../firebase/firestoreService';
 import { PrintReceipt } from './PrintReceipt';
 import { useLanguage } from '../context/LanguageContext';
@@ -52,14 +54,19 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
   const symbol = settings?.currencySymbol || '₹';
   const { t, language } = useLanguage();
 
-  // Sub-tabs: 'customers' (Directory & Ledgers) vs 'all-bills' (All Store Bills Register)
-  const [activeTab, setActiveTab] = useState<'customers' | 'all-bills'>('customers');
+  // Sub-tabs: 'customers' (Directory & Ledgers) vs 'payments' (All Customer Payments) vs 'all-bills' (All Store Bills Register)
+  const [activeTab, setActiveTab] = useState<'customers' | 'payments' | 'all-bills'>('customers');
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [search, setSearch] = useState('');
   const [onlyWithDue, setOnlyWithDue] = useState(false);
+
+  // Payments view filters
+  const [paymentSearch, setPaymentSearch] = useState('');
+  const [paymentModeFilter, setPaymentModeFilter] = useState<'all' | 'cash' | 'upi' | 'card' | 'split'>('all');
+  const [paymentDateFilter, setPaymentDateFilter] = useState<'all' | 'today' | '7days' | 'month'>('all');
 
   // All Bills view filters
   const [billSearch, setBillSearch] = useState('');
@@ -147,8 +154,10 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
   };
 
   const loadData = async () => {
+    // Backfill any invoice payments into local Dexie customerPayments
+    await backfillInvoicePaymentsToLocalDb();
     const custs = await db.customers.toArray();
-    const pmts = await db.customerPayments.toArray();
+    const pmts = await db.customerPayments.reverse().toArray();
     const invs = await db.invoices.reverse().toArray(); // newest bills first
     setCustomers(custs);
     setPayments(pmts);
@@ -206,6 +215,11 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
     try {
       await db.invoices.delete(inv.id);
       deleteInvoiceFromCloud(inv.id);
+
+      // Clean up corresponding payment record
+      const paymentId = `pay-${inv.id}`;
+      await db.customerPayments.delete(paymentId);
+      deleteCustomerPaymentFromCloud(paymentId);
 
       await loadData();
       onRefreshStats();
@@ -280,6 +294,38 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
   const totalBillsAmount = invoices.reduce((sum, i) => sum + i.grandTotal, 0);
   const totalPaidAmount = invoices.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
   const totalCreditAmount = invoices.reduce((sum, i) => sum + (i.creditAmount || 0), 0);
+  const totalCustomerPayments = payments.reduce((sum, p) => sum + p.amount, 0);
+  const cashPaymentsTotal = payments.filter((p) => p.paymentMode === 'cash').reduce((sum, p) => sum + p.amount, 0);
+  const upiPaymentsTotal = payments.filter((p) => p.paymentMode === 'upi').reduce((sum, p) => sum + p.amount, 0);
+  const cardPaymentsTotal = payments.filter((p) => p.paymentMode === 'card').reduce((sum, p) => sum + p.amount, 0);
+
+  // Filter all customer payments
+  const filteredPayments = payments.filter((p) => {
+    if (paymentModeFilter !== 'all' && p.paymentMode !== paymentModeFilter) {
+      return false;
+    }
+
+    if (paymentDateFilter === 'today') {
+      if (p.date !== todayStr) return false;
+    } else if (paymentDateFilter === '7days') {
+      const pDate = new Date(p.date);
+      const diffDays = (now.getTime() - pDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDays > 7) return false;
+    } else if (paymentDateFilter === 'month') {
+      if (!p.date.startsWith(currentMonthStr)) return false;
+    }
+
+    if (paymentSearch.trim()) {
+      const q = paymentSearch.toLowerCase().trim();
+      const inId = p.id.toLowerCase().includes(q);
+      const inCustomer = (p.customerName || '').toLowerCase().includes(q);
+      const inRef = (p.referenceNo || '').toLowerCase().includes(q);
+      const inNotes = (p.notes || '').toLowerCase().includes(q);
+      return inId || inCustomer || inRef || inNotes;
+    }
+
+    return true;
+  });
 
   // Save new customer
   const handleSaveCustomer = async (e: React.FormEvent) => {
@@ -378,7 +424,13 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
   // Invoices & payments for selected customer
   const customerInvoices = selectedCustomer ? getCustomerInvoices(selectedCustomer) : [];
   const customerPaymentsList = selectedCustomer
-    ? payments.filter((p) => p.customerId === selectedCustomer.id)
+    ? payments.filter(
+        (p) =>
+          p.customerId === selectedCustomer.id ||
+          (p.customerName &&
+            selectedCustomer.name &&
+            p.customerName.trim().toLowerCase() === selectedCustomer.name.trim().toLowerCase())
+      )
     : [];
 
   return (
@@ -401,6 +453,12 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
               <Receipt className="w-4 h-4 text-emerald-600" />
               <span className="text-emerald-800 font-semibold">{t('khata.total_bills', 'Total Stored Bills: ')}</span>
               <strong className="text-emerald-950 font-mono">{invoices.length} {language === 'mr' ? 'बिले' : 'Bills'}</strong>
+            </div>
+
+            <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs flex items-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-blue-600" />
+              <span className="text-blue-800 font-semibold">{language === 'mr' ? 'एकूण पेमेंट्स: ' : 'Total Payments: '}</span>
+              <strong className="text-blue-950 font-mono">{payments.length} ({formatCurrency(totalCustomerPayments, symbol)})</strong>
             </div>
 
             <div className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs flex items-center gap-1.5">
@@ -463,11 +521,11 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
         )}
 
         {/* View Switcher Tabs */}
-        <div className="flex border-b border-slate-200 gap-1 pt-1">
+        <div className="flex border-b border-slate-200 gap-1 pt-1 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('customers')}
-            className={`px-4 py-2.5 text-xs font-bold flex items-center gap-2 border-b-2 transition-all ${
+            className={`px-4 py-2.5 text-xs font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
               activeTab === 'customers'
                 ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-lg'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
@@ -482,8 +540,24 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
 
           <button
             type="button"
+            onClick={() => setActiveTab('payments')}
+            className={`px-4 py-2.5 text-xs font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
+              activeTab === 'payments'
+                ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-lg'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
+            }`}
+          >
+            <DollarSign className="w-4 h-4" />
+            <span>Customer Payments ({payments.length})</span>
+            <span className="px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-800 rounded-full font-mono font-bold">
+              {formatCurrency(totalCustomerPayments, symbol)}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('all-bills')}
-            className={`px-4 py-2.5 text-xs font-bold flex items-center gap-2 border-b-2 transition-all ${
+            className={`px-4 py-2.5 text-xs font-bold flex items-center gap-2 border-b-2 whitespace-nowrap transition-all ${
               activeTab === 'all-bills'
                 ? 'border-emerald-600 text-emerald-700 bg-emerald-50/50 rounded-t-lg'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
@@ -805,6 +879,227 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
                 </p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ================= VIEW: ALL CUSTOMER PAYMENTS REGISTER ================= */}
+      {activeTab === 'payments' && (
+        <div className="space-y-4">
+          {/* Summary Metric KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[11px] font-bold text-slate-500 uppercase">{language === 'mr' ? 'एकूण पेमेंट्स संख्या' : 'Total Payments Count'}</div>
+                <div className="text-lg font-black font-mono text-slate-900">{payments.length}</div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-600 font-bold">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[11px] font-bold text-slate-500 uppercase">{language === 'mr' ? 'एकूण जमा रक्कम' : 'Total Collected Value'}</div>
+                <div className="text-lg font-black font-mono text-teal-900">
+                  {formatCurrency(totalCustomerPayments, symbol)}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
+                <Banknote className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[11px] font-bold text-slate-500 uppercase">{language === 'mr' ? 'रोख (कॅश)' : 'Cash Payments'}</div>
+                <div className="text-lg font-black font-mono text-emerald-800">
+                  {formatCurrency(cashPaymentsTotal, symbol)}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold">
+                <QrCode className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-[11px] font-bold text-slate-500 uppercase">{language === 'mr' ? 'डिजिटल (UPI/कार्ड)' : 'Digital (UPI & Card)'}</div>
+                <div className="text-lg font-black font-mono text-blue-900">
+                  {formatCurrency(upiPaymentsTotal + cardPaymentsTotal, symbol)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Filter Toolbar */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3.5 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+            {/* Search Input */}
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+              <input
+                type="text"
+                value={paymentSearch}
+                onChange={(e) => setPaymentSearch(e.target.value)}
+                placeholder={language === 'mr' ? 'ग्राहक, पेमेंट आयडी, बिल # किंवा नोंद शोधा...' : 'Search Customer, Payment ID, Invoice #, Notes...'}
+                className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-500"
+              />
+              {paymentSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPaymentSearch('')}
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Filter Pills */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Payment Mode Pills */}
+              <div className="flex bg-slate-100 p-1 rounded-lg text-xs font-bold text-slate-600">
+                {(['all', 'cash', 'upi', 'card', 'split'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setPaymentModeFilter(mode)}
+                    className={`px-2.5 py-1 rounded capitalize transition-all ${
+                      paymentModeFilter === mode
+                        ? 'bg-white text-emerald-700 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+
+              {/* Date Filter Pills */}
+              <div className="flex bg-slate-100 p-1 rounded-lg text-xs font-bold text-slate-600">
+                {(
+                  [
+                    { id: 'all', label: language === 'mr' ? 'सर्व' : 'All Time' },
+                    { id: 'today', label: language === 'mr' ? 'आज' : 'Today' },
+                    { id: '7days', label: language === 'mr' ? 'मागील ७ दिवस' : 'Last 7 Days' },
+                    { id: 'month', label: language === 'mr' ? 'चालू महिना' : 'This Month' },
+                  ] as const
+                ).map((df) => (
+                  <button
+                    key={df.id}
+                    type="button"
+                    onClick={() => setPaymentDateFilter(df.id)}
+                    className={`px-2.5 py-1 rounded transition-all ${
+                      paymentDateFilter === df.id
+                        ? 'bg-white text-emerald-700 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    {df.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Payments Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-50 text-slate-600 font-bold uppercase text-[10px] border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3">{language === 'mr' ? 'तारीख' : 'Date'}</th>
+                    <th className="px-4 py-3">{language === 'mr' ? 'पेमेंट आयडी' : 'Payment ID'}</th>
+                    <th className="px-4 py-3">{language === 'mr' ? 'ग्राहकाचे नाव' : 'Customer Name'}</th>
+                    <th className="px-4 py-3">{language === 'mr' ? 'माध्यम' : 'Mode'}</th>
+                    <th className="px-4 py-3">{language === 'mr' ? 'बिल / संदर्भ #' : 'Reference / Bill #'}</th>
+                    <th className="px-4 py-3">{language === 'mr' ? 'तपशील / नोंद' : 'Description / Notes'}</th>
+                    <th className="px-4 py-3 text-right">{language === 'mr' ? 'जमा रक्कम' : 'Amount Received'}</th>
+                    <th className="px-4 py-3 text-center">{language === 'mr' ? 'कृती' : 'Action'}</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredPayments.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-4 py-8 text-center text-slate-400">
+                        {language === 'mr' ? 'कोणतीही पेमेंट नोंद आढळली नाही.' : 'No customer payment records match your filters.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredPayments.map((p) => {
+                      const matchedInvoice = p.referenceNo
+                        ? invoices.find((inv) => inv.invoiceNo === p.referenceNo)
+                        : null;
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="px-4 py-3 font-medium text-slate-600 whitespace-nowrap">
+                            {formatDate(p.date)}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[11px] font-bold text-slate-500 whitespace-nowrap">
+                            {p.id}
+                          </td>
+                          <td className="px-4 py-3 font-bold text-slate-900 whitespace-nowrap">
+                            {p.customerName || (language === 'mr' ? 'थेट ग्राहक' : 'Walk-in Customer')}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                p.paymentMode === 'cash'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : p.paymentMode === 'upi'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : p.paymentMode === 'card'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {p.paymentMode}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-blue-600 whitespace-nowrap">
+                            {p.referenceNo || '-'}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={p.notes || ''}>
+                            {p.notes || 'Payment settlement'}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono font-bold text-emerald-600 text-sm whitespace-nowrap">
+                            {formatCurrency(p.amount, symbol)}
+                          </td>
+                          <td className="px-4 py-3 text-center whitespace-nowrap">
+                            {matchedInvoice ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenBillModal(matchedInvoice, 'thermal-80mm')}
+                                className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 flex items-center gap-1 mx-auto transition-colors"
+                                title="View Bill Receipt"
+                              >
+                                <Receipt className="w-3.5 h-3.5" />
+                                <span>{language === 'mr' ? 'बिल पहा' : 'View Bill'}</span>
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-medium">{language === 'mr' ? 'खाता जमा' : 'Khata Settlement'}</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
+              <span>
+                {language === 'mr' ? 'दाखवत आहे: ' : 'Showing: '}
+                <strong>{filteredPayments.length}</strong> / <strong>{payments.length}</strong> {language === 'mr' ? 'पेमेंट्स' : 'payments'}
+              </span>
+              <span className="font-mono font-bold text-slate-700">
+                {language === 'mr' ? 'एकूण: ' : 'Total: '}
+                {formatCurrency(filteredPayments.reduce((s, p) => s + p.amount, 0), symbol)}
+              </span>
+            </div>
           </div>
         </div>
       )}

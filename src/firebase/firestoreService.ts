@@ -226,6 +226,59 @@ export async function syncSettingsToCloud(settings: StoreSettings) {
 // ================= MASS CLOUD SYNC & RESTORE =================
 
 /**
+ * Ensures all paid invoices have corresponding CustomerPayment records in Dexie local DB.
+ * Returns the array of newly created customer payments so they can be immediately synced to Firebase.
+ */
+export async function backfillInvoicePaymentsToLocalDb(): Promise<CustomerPayment[]> {
+  try {
+    const invs = await db.invoices.toArray();
+    const existingPayments = await db.customerPayments.toArray();
+    const existingIds = new Set(existingPayments.map((p) => p.id));
+    const existingRefs = new Set(
+      existingPayments.filter((p) => p.referenceNo).map((p) => p.referenceNo)
+    );
+
+    const newPayments: CustomerPayment[] = [];
+    for (const inv of invs) {
+      if (inv.paidAmount && inv.paidAmount > 0) {
+        const pId = `pay-${inv.id}`;
+        // If not already in customerPayments by ID or by invoice referenceNo
+        if (!existingIds.has(pId) && !existingRefs.has(inv.invoiceNo)) {
+          const payMode: 'cash' | 'upi' | 'card' | 'split' =
+            inv.paymentMode === 'credit'
+              ? 'cash'
+              : (inv.paymentMode as any) || 'cash';
+
+          const pmt: CustomerPayment = {
+            id: pId,
+            customerId: inv.customerId || 'walk-in',
+            customerName: inv.customerName || 'Walk-in Customer',
+            date: inv.date || new Date().toISOString().split('T')[0],
+            amount: inv.paidAmount,
+            paymentMode: payMode,
+            referenceNo: inv.invoiceNo,
+            notes: `Invoice payment for ${inv.invoiceNo}`,
+          };
+          newPayments.push(pmt);
+          existingIds.add(pId);
+          if (inv.invoiceNo) existingRefs.add(inv.invoiceNo);
+        }
+      }
+    }
+
+    if (newPayments.length > 0) {
+      await db.customerPayments.bulkPut(newPayments);
+      console.log(`[Firebase Service] Backfilled ${newPayments.length} customer payments from invoices into local DB.`);
+    }
+
+    return newPayments;
+  } catch (err) {
+    console.warn('Error backfilling invoice payments:', err);
+    return [];
+  }
+}
+
+/**
  * Sync ALL invoices, billing history, and payment transactions to Cloud Firestore
  */
 export async function syncAllBillingAndPaymentsToCloud(): Promise<{
@@ -236,6 +289,9 @@ export async function syncAllBillingAndPaymentsToCloud(): Promise<{
   message: string;
 }> {
   try {
+    // 0. Ensure all paid invoices are logged as CustomerPayments
+    await backfillInvoicePaymentsToLocalDb();
+
     const invs = await db.invoices.toArray();
     const payments = await db.customerPayments.toArray();
     const custs = await db.customers.toArray();
@@ -300,6 +356,8 @@ export async function syncAllBillingAndPaymentsToCloud(): Promise<{
  */
 export async function uploadLocalDatabaseToCloud(): Promise<{ success: boolean; message: string }> {
   try {
+    await backfillInvoicePaymentsToLocalDb();
+
     const meds = await db.medicines.toArray();
     const batches = await db.batches.toArray();
     const custs = await db.customers.toArray();
@@ -490,6 +548,29 @@ export async function downloadCloudDatabaseToLocal(): Promise<{ success: boolean
       });
     } finally {
       setSyncingFromCloud(false);
+    }
+
+    // Auto-backfill payments from all downloaded invoices so customer payments stay 100% complete
+    try {
+      const newlyBackfilled = await backfillInvoicePaymentsToLocalDb();
+      if (newlyBackfilled.length > 0) {
+        let b = writeBatch(firestore);
+        let bCount = 0;
+        for (const p of newlyBackfilled) {
+          b.set(doc(firestore, 'customerPayments', p.id), sanitizeForFirestore(p));
+          bCount++;
+          if (bCount >= 400) {
+            await b.commit();
+            b = writeBatch(firestore);
+            bCount = 0;
+          }
+        }
+        if (bCount > 0) {
+          await b.commit();
+        }
+      }
+    } catch (backfillErr) {
+      console.warn('Error syncing backfilled payments after cloud download:', backfillErr);
     }
 
     return {
