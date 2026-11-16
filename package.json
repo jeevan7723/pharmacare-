@@ -21,6 +21,7 @@
   "dependencies": {
     "dexie": "^4.4.7",
     "firebase": "^13.1.0",
+    "jsbarcode": "^3.12.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "lucide-react": "^1.64.0",
@@ -29,6 +30,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@types/jsbarcode": "^3.11.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",

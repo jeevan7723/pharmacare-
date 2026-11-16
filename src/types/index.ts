@@ -31,6 +31,7 @@ export interface Medicine {
   mrp?: number;          // Maximum Retail Price
   saleRate?: number;     // Selling rate
   purchaseRate?: number; // Cost price (excl. tax)
+  barcode?: string;      // Barcode / EAN-13 / SKU
   createdAt: string;
 }
 
@@ -73,6 +74,7 @@ export interface CartItem {
   taxableAmount: number;
   gstAmount: number;
   totalAmount: number;
+  barcode?: string;
 }
 
 export interface Customer {
@@ -154,6 +156,7 @@ export interface PurchaseItem {
   taxableAmount: number;
   gstAmount: number;
   totalAmount: number;
+  barcode?: string;
 }
 
 export interface PurchaseOrder {

@@ -46,6 +46,11 @@ export class PharmaDatabase extends Dexie {
       settings: 'id',
       heldBills: 'id, customerPhone',
     });
+
+    this.version(2).stores({
+      medicines: 'id, name, genericName, category, rack, shelf, hsnCode, schedule, barcode',
+      batches: 'id, medicineId, batchNumber, expiryDate, stockQty, barcode',
+    });
   }
 }
 

@@ -20,6 +20,8 @@ import {
   HelpCircle,
   MapPin,
   ShieldAlert,
+  Barcode,
+  ScanBarcode,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { db } from '../db/db';
@@ -41,6 +43,7 @@ import {
   calculateLineItemPricing,
   generateUpiQrUri,
 } from '../utils/formatters';
+import { playBarcodeBeep, ensureAllBarcodes } from '../utils/barcodeGenerator';
 import { PrintReceipt } from './PrintReceipt';
 import {
   syncInvoiceToCloud,
@@ -117,6 +120,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
   // Completed Invoice & Print Modal state
   const [completedInvoice, setCompletedInvoice] = useState<Invoice | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
+  const [scanToast, setScanToast] = useState<{ message: string; type: 'success' | 'warn' } | null>(null);
   const [printFormat, setPrintFormat] = useState<'thermal-80mm' | 'a4-tax-invoice'>(
     settings?.printFormat === 'a4-tax-invoice' ? 'a4-tax-invoice' : 'thermal-80mm'
   );
@@ -129,6 +133,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
 
   // Load initial data
   const loadData = async () => {
+    await ensureAllBarcodes();
     const meds = await db.medicines.toArray();
     const batches = await db.batches.toArray();
     const docs = await db.doctors.toArray();
@@ -218,7 +223,8 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
         m.name.toLowerCase().includes(q) ||
         m.genericName.toLowerCase().includes(q) ||
         m.category.toLowerCase().includes(q) ||
-        m.rack.toLowerCase().includes(q)
+        m.rack.toLowerCase().includes(q) ||
+        (m.barcode && m.barcode.toLowerCase().includes(q))
     );
 
     // Also search by batch barcode
@@ -324,6 +330,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
         taxableAmount: pricing.taxableAmount,
         gstAmount: pricing.gstAmount,
         totalAmount: pricing.totalAmount,
+        barcode: chosenBatch.barcode || medicine.barcode || '',
       };
 
       setCart([...cart, newItem]);
@@ -333,6 +340,89 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
     setIsSearchOpen(false);
     searchInputRef.current?.focus();
   };
+
+  // Barcode Scanner Handler: Matches scanned barcode to batch or medicine and adds to cart with sound
+  const handleBarcodeScan = (scannedCode: string): boolean => {
+    const code = scannedCode.trim().toLowerCase();
+    if (!code) return false;
+
+    // 1. Check exact match on batch barcode
+    const matchedBatch = allBatches.find((b) => b.barcode && b.barcode.toLowerCase() === code);
+    if (matchedBatch) {
+      const parentMed = allMedicines.find((m) => m.id === matchedBatch.medicineId);
+      if (parentMed) {
+        handleAddToCart(parentMed, matchedBatch);
+        playBarcodeBeep();
+        setScanToast({
+          message: `Scanned: ${parentMed.name} (Batch: ${matchedBatch.batchNumber}) added to bill`,
+          type: 'success',
+        });
+        setTimeout(() => setScanToast(null), 3000);
+        return true;
+      }
+    }
+
+    // 2. Check exact match on medicine barcode
+    const matchedMed = allMedicines.find((m) => m.barcode && m.barcode.toLowerCase() === code);
+    if (matchedMed) {
+      handleAddToCart(matchedMed);
+      playBarcodeBeep();
+      setScanToast({
+        message: `Scanned: ${matchedMed.name} added to bill`,
+        type: 'success',
+      });
+      setTimeout(() => setScanToast(null), 3000);
+      return true;
+    }
+
+    return false;
+  };
+
+  // Global listener for fast barcode scanner input
+  useEffect(() => {
+    if (!isActive || isPaymentModalOpen || isHeldBillsModalOpen || isPrintModalOpen) return;
+
+    let barcodeBuffer = '';
+    let lastKeyTime = Date.now();
+
+    const handleGlobalScan = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isInput = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.tagName === 'SELECT';
+      const isSearchBox = target === searchInputRef.current;
+
+      if (isInput && !isSearchBox) return;
+
+      const currentTime = Date.now();
+      const diff = currentTime - lastKeyTime;
+      lastKeyTime = currentTime;
+
+      if (e.key === 'Enter') {
+        if (barcodeBuffer.length >= 4) {
+          const scanned = barcodeBuffer;
+          barcodeBuffer = '';
+          const success = handleBarcodeScan(scanned);
+          if (success) {
+            e.preventDefault();
+            if (isSearchBox) setSearchQuery('');
+            return;
+          }
+        }
+        barcodeBuffer = '';
+        return;
+      }
+
+      if (e.key.length === 1) {
+        if (diff > 80 && !isSearchBox) {
+          barcodeBuffer = e.key;
+        } else {
+          barcodeBuffer += e.key;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalScan);
+    return () => window.removeEventListener('keydown', handleGlobalScan);
+  }, [isActive, allMedicines, allBatches, isPaymentModalOpen, isHeldBillsModalOpen, isPrintModalOpen, cart, overallDiscountPercent]);
 
   // Update Item Quantity
   const updateCartItemQty = (index: number, newQty: number) => {
@@ -807,6 +897,19 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Column: Medicine Search & Cart Table */}
         <div className="lg:col-span-8 space-y-3">
+          {/* Scan feedback toast banner */}
+          {scanToast && (
+            <div className="flex items-center justify-between px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                <span>{scanToast.message}</span>
+              </div>
+              <button onClick={() => setScanToast(null)} className="text-white/80 hover:text-white">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Medicine Search Input Bar */}
           <div className="relative">
             <div className="relative flex items-center">
@@ -819,10 +922,38 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 onFocus={() => {
                   if (searchQuery.trim()) setIsSearchOpen(true);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const query = searchQuery.trim();
+                    if (!query) return;
+
+                    const wasBarcode = handleBarcodeScan(query);
+                    if (wasBarcode) {
+                      setSearchQuery('');
+                      setIsSearchOpen(false);
+                      return;
+                    }
+
+                    if (searchResults.length > 0) {
+                      handleAddToCart(searchResults[0].medicine);
+                      playBarcodeBeep();
+                      setSearchQuery('');
+                      setIsSearchOpen(false);
+                    }
+                  }
+                }}
                 placeholder={t('pos.search_medicine_ph', 'Press F4 to Search Medicine (Brand Name, Generic Salt, Barcode, or Rack)...')}
                 className="w-full pl-11 pr-24 py-3 bg-white text-slate-900 border-2 border-emerald-500 rounded-xl shadow-md text-base font-medium focus:ring-4 focus:ring-emerald-500/20 focus:outline-none placeholder:text-slate-400"
               />
               <div className="absolute right-3 flex items-center space-x-1.5">
+                <span
+                  className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded shadow-2xs"
+                  title="Barcode Scanner Active - Scan product barcode directly at any time"
+                >
+                  <ScanBarcode className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Scan Ready</span>
+                </span>
                 <span className="text-[11px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-300 px-2 py-0.5 rounded">
                   F4
                 </span>
@@ -861,8 +992,8 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                             <span
                               className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
                                 medicine.schedule === 'Schedule H' || medicine.schedule === 'Schedule H1'
-                                  ? 'bg-red-50 text-red-700 border-red-200'
-                                  : 'bg-slate-100 text-slate-700 border-slate-300'
+                                ? 'bg-red-50 text-red-700 border-red-200'
+                                : 'bg-slate-100 text-slate-700 border-slate-300'
                               }`}
                             >
                               {medicine.schedule}
@@ -874,12 +1005,18 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                           <div className="text-xs text-slate-600 mt-0.5">
                             <span className="font-medium text-emerald-800">{medicine.genericName}</span> &bull; {medicine.manufacturer}
                           </div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-1">
+                          <div className="text-[11px] text-slate-500 flex flex-wrap items-center gap-1.5 mt-1">
                             <MapPin className="w-3 h-3 text-amber-600" />
                             <span>
                               Location: <strong>{medicine.rack} - {medicine.shelf}</strong>
                             </span>
                             <span>&bull; Pack: {medicine.packSize} / {medicine.unit}</span>
+                            {medicine.barcode && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded border border-slate-200">
+                                <Barcode className="w-3 h-3 text-slate-500" />
+                                {medicine.barcode}
+                              </span>
+                            )}
                           </div>
                         </div>
 
@@ -914,6 +1051,9 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                                 }`}
                               >
                                 <span className="font-mono font-bold text-slate-800">B:{b.batchNumber}</span>
+                                {b.barcode && (
+                                  <span className="font-mono text-[9px] text-slate-400">#{b.barcode}</span>
+                                )}
                                 <span className={`px-1 rounded text-[9px] ${exp.badgeClass}`}>{exp.label}</span>
                                 <span className="text-slate-600">Stock: {b.stockQty}</span>
                                 <span className="font-bold text-emerald-700">{formatCurrency(b.saleRate, symbol)}</span>
@@ -993,11 +1133,19 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                           <td className="py-2 px-3">
                             <div className="font-bold text-slate-900">{item.medicineName}</div>
                             <div className="text-[10px] text-slate-500">{item.genericName}</div>
-                            {item.schedule !== 'OTC' && (
-                              <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 px-1 rounded">
-                                {item.schedule}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {item.schedule !== 'OTC' && (
+                                <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 px-1 rounded">
+                                  {item.schedule}
+                                </span>
+                              )}
+                              {item.barcode && (
+                                <span className="font-mono text-[9px] text-slate-500 flex items-center gap-0.5 bg-slate-100 px-1 rounded border border-slate-200">
+                                  <Barcode className="w-2.5 h-2.5 text-slate-400" />
+                                  <span>{item.barcode}</span>
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* Rack Location */}

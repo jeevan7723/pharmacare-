@@ -14,6 +14,8 @@ import {
   Layers,
   ArrowUpDown,
   IndianRupee,
+  Barcode,
+  RefreshCw,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Medicine, Batch, MedicineCategory, ScheduleType, StoreSettings } from '../types';
@@ -25,6 +27,8 @@ import {
   syncBatchToCloud,
   deleteBatchFromCloud,
 } from '../firebase/firestoreService';
+import { BarcodeModal } from './BarcodeModal';
+import { generateMedicineBarcode, ensureAllBarcodes } from '../utils/barcodeGenerator';
 
 const CATEGORIES: MedicineCategory[] = [
   'Tablets',
@@ -63,6 +67,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
   const [editingMedId, setEditingMedId] = useState<string | null>(null);
   const [initialStockQty, setInitialStockQty] = useState<number>(50);
   const [initialBatchNo, setInitialBatchNo] = useState<string>('');
+  const [isGeneratingBarcodes, setIsGeneratingBarcodes] = useState(false);
   const [medForm, setMedForm] = useState<Partial<Medicine>>({
     name: '',
     genericName: '',
@@ -79,7 +84,25 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
     mrp: 0,
     saleRate: 0,
     purchaseRate: 0,
+    barcode: '',
   });
+
+  // Barcode Modal state
+  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
+  const [selectedMedForBarcode, setSelectedMedForBarcode] = useState<Medicine | null>(null);
+  const [selectedBatchForBarcode, setSelectedBatchForBarcode] = useState<Batch | null>(null);
+
+  const openBarcodeModal = (med: Medicine, batch?: Batch) => {
+    setSelectedMedForBarcode(med);
+    setSelectedBatchForBarcode(batch || null);
+    setIsBarcodeModalOpen(true);
+  };
+
+  const closeBarcodeModal = () => {
+    setIsBarcodeModalOpen(false);
+    setSelectedMedForBarcode(null);
+    setSelectedBatchForBarcode(null);
+  };
 
   // Add Batch Modal
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -98,10 +121,28 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
   const batchDialogRef = useRef<HTMLDialogElement>(null);
 
   const loadData = async () => {
+    await ensureAllBarcodes();
     const m = await db.medicines.toArray();
     const b = await db.batches.toArray();
     setMedicines(m);
     setBatches(b);
+  };
+
+  const handleSyncAllBarcodes = async () => {
+    setIsGeneratingBarcodes(true);
+    try {
+      const res = await ensureAllBarcodes();
+      await loadData();
+      alert(
+        res.updatedMedicines > 0 || res.updatedBatches > 0
+          ? `Generated barcodes for ${res.updatedMedicines} medicines and ${res.updatedBatches} batches!`
+          : 'All medicines and batches already have verified barcodes.'
+      );
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGeneratingBarcodes(false);
+    }
   };
 
   useEffect(() => {
@@ -178,6 +219,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       mrp: 0,
       saleRate: 0,
       purchaseRate: 0,
+      barcode: generateMedicineBarcode(),
     });
     setInitialStockQty(50);
     setInitialBatchNo(`B${Math.floor(10000 + Math.random() * 90000)}`);
@@ -195,6 +237,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       mrp: m.mrp || pricing.primaryMrp || 0,
       saleRate: m.saleRate || pricing.saleRate || 0,
       purchaseRate: m.purchaseRate || pricing.purchaseRate || 0,
+      barcode: m.barcode || medBatches.find((b) => b.barcode)?.barcode || generateMedicineBarcode(),
     });
     setIsMedModalOpen(true);
     medDialogRef.current?.showModal();
@@ -216,6 +259,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
     const mrp = Number(medForm.mrp) || 0;
     const saleRate = Number(medForm.saleRate) || mrp;
     const purchaseRate = Number(medForm.purchaseRate) || 0;
+    const barcode = medForm.barcode?.trim() || generateMedicineBarcode();
 
     if (editingMedId) {
       const updatedMed: Partial<Medicine> = {
@@ -223,21 +267,27 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         mrp,
         saleRate,
         purchaseRate,
+        barcode,
       };
       await db.medicines.update(editingMedId, updatedMed);
       const updated = await db.medicines.get(editingMedId);
       if (updated) syncMedicineToCloud(updated);
 
-      // If user updated price and batches exist, keep batch price updated
+      // If user updated price/barcode and batches exist, keep batches updated
       const existingBatches = await db.batches.where('medicineId').equals(editingMedId).toArray();
-      if (existingBatches.length > 0 && mrp > 0) {
+      if (existingBatches.length > 0) {
         for (const b of existingBatches) {
-          if (b.mrp === 0 || existingBatches.length === 1) {
-            await db.batches.update(b.id, {
-              mrp,
-              saleRate,
-              purchaseRate: purchaseRate || b.purchaseRate,
-            });
+          const batchUpdate: Partial<Batch> = {};
+          if (mrp > 0 && (b.mrp === 0 || existingBatches.length === 1)) {
+            batchUpdate.mrp = mrp;
+            batchUpdate.saleRate = saleRate;
+            batchUpdate.purchaseRate = purchaseRate || b.purchaseRate;
+          }
+          if (!b.barcode) {
+            batchUpdate.barcode = barcode;
+          }
+          if (Object.keys(batchUpdate).length > 0) {
+            await db.batches.update(b.id, batchUpdate);
             const updatedB = await db.batches.get(b.id);
             if (updatedB) syncBatchToCloud(updatedB);
           }
@@ -257,7 +307,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
           mrp,
           saleRate,
           stockQty: initialStockQty || 0,
-          barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+          barcode,
           createdAt: new Date().toISOString(),
         };
         await db.batches.put(autoBatch);
@@ -271,6 +321,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         mrp,
         saleRate,
         purchaseRate,
+        barcode,
         createdAt: new Date().toISOString(),
       };
       await db.medicines.put(newMed);
@@ -291,7 +342,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
           mrp,
           saleRate,
           stockQty: initialStockQty || 0,
-          barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+          barcode,
           createdAt: new Date().toISOString(),
         };
         await db.batches.put(autoBatch);
@@ -398,6 +449,15 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncAllBarcodes}
+            disabled={isGeneratingBarcodes}
+            className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+            title="Ensure every medicine and batch has an EAN-13 barcode generated"
+          >
+            <Barcode className="w-4 h-4 text-emerald-600" />
+            <span>{isGeneratingBarcodes ? 'Generating...' : t('inv.generate_barcodes', 'Generate All Barcodes')}</span>
+          </button>
           <button
             onClick={openAddMedModal}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
@@ -537,11 +597,21 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
 
                   return (
                     <tr key={med.id} className="hover:bg-slate-50">
-                      {/* Name & Generic */}
+                      {/* Name & Generic & Barcode */}
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900 text-sm">{med.name}</div>
                         <div className="text-[11px] text-emerald-800 font-medium">{med.genericName}</div>
                         <div className="text-[10px] text-slate-400">{med.manufacturer}</div>
+                        {med.barcode && (
+                          <button
+                            onClick={() => openBarcodeModal(med)}
+                            className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[10px] font-mono text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-800 transition-colors group"
+                            title="View & Print Barcode Sticker"
+                          >
+                            <Barcode className="w-3 h-3 text-slate-500 group-hover:text-emerald-600" />
+                            <span>{med.barcode}</span>
+                          </button>
+                        )}
                       </td>
 
                       {/* Category */}
@@ -628,6 +698,15 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                                   <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1 rounded text-[10px]">
                                     {formatCurrency(b.saleRate || b.mrp, symbol)}
                                   </span>
+                                  {b.barcode && (
+                                    <button
+                                      onClick={() => openBarcodeModal(med, b)}
+                                      className="text-slate-400 hover:text-emerald-700 p-0.5"
+                                      title={`Print Barcode Sticker for Batch ${b.batchNumber}`}
+                                    >
+                                      <Barcode className="w-3 h-3" />
+                                    </button>
+                                  )}
                                   <button
                                     onClick={() => handleDeleteBatch(b.id, b.batchNumber)}
                                     className="hidden group-hover:inline-block text-red-400 hover:text-red-600 ml-0.5"
@@ -668,6 +747,13 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                           >
                             <Plus className="w-3 h-3" />
                             <span>+Batch</span>
+                          </button>
+                          <button
+                            onClick={() => openBarcodeModal(med)}
+                            className="p-1 text-slate-500 hover:text-emerald-800 rounded hover:bg-emerald-50"
+                            title="Print Barcode Label"
+                          >
+                            <Barcode className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => openEditMedModal(med)}
@@ -970,6 +1056,37 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 </div>
               </div>
             )}
+
+            {/* Barcode / EAN-13 Generator */}
+            <div className="pt-2.5 border-t border-emerald-200/70">
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Medicine Barcode (EAN-13 / Code-128)
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Barcode className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={medForm.barcode || ''}
+                    onChange={(e) => setMedForm({ ...medForm, barcode: e.target.value })}
+                    placeholder="e.g. 890111700101"
+                    className="w-full text-xs pl-8 pr-3 py-2 border border-slate-300 rounded-lg font-mono font-bold uppercase bg-white focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMedForm({ ...medForm, barcode: generateMedicineBarcode() })}
+                  className="px-3 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 transition-all shrink-0"
+                  title="Generate new unique EAN-13 barcode"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Generate Barcode</span>
+                </button>
+              </div>
+              <span className="text-[10px] text-slate-500">
+                Scanned by laser/camera scanner in POS billing to instantly auto-add this medicine
+              </span>
+            </div>
           </div>
 
           <div className="bg-slate-100 -mx-6 -mb-6 p-4 flex justify-end space-x-2 border-t border-slate-200 mt-6">
@@ -1090,7 +1207,16 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Barcode / SKU</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-xs font-bold text-slate-700">Barcode / SKU</label>
+                <button
+                  type="button"
+                  onClick={() => setBatchForm({ ...batchForm, barcode: generateMedicineBarcode() })}
+                  className="text-[10px] text-emerald-700 hover:underline font-bold"
+                >
+                  Generate Barcode
+                </button>
+              </div>
               <input
                 type="text"
                 value={batchForm.barcode || ''}
@@ -1118,6 +1244,15 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
           </div>
         </form>
       </dialog>
+
+      {/* Barcode Sticker Label Modal */}
+      <BarcodeModal
+        isOpen={isBarcodeModalOpen}
+        onClose={closeBarcodeModal}
+        medicine={selectedMedForBarcode}
+        batch={selectedBatchForBarcode}
+        settings={settings}
+      />
     </div>
   );
 };

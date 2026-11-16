@@ -143,6 +143,8 @@ export const translations: Record<Language, TranslationDictionary> = {
     'pos.col_gst': 'GST %',
     'pos.col_total': 'Total',
     'pos.held_bills_modal': 'Held Bills Queue',
+    'pos.barcode_scanner_ready': 'Barcode Scanner Ready (Scan to Bill)',
+    'pos.barcode_scanned': 'Scanned & Added to Bill',
 
     // Customer Khata
     'khata.total_bills': 'Total Stored Bills:',
@@ -179,6 +181,8 @@ export const translations: Record<Language, TranslationDictionary> = {
     'inv.pricing_section': 'Medicine Pricing & Rates',
     'inv.initial_stock': 'Initial Stock Quantity',
     'inv.initial_batch': 'Initial Batch Number',
+    'inv.barcode_btn': 'Barcode Sticker',
+    'inv.generate_barcodes': 'Generate All Barcodes',
 
     // Expiry Alerts
     'alerts.title': 'Drug Expiry & Low Stock Watchtower',
@@ -375,6 +379,8 @@ export const translations: Record<Language, TranslationDictionary> = {
     'pos.col_gst': 'जीएसटी %',
     'pos.col_total': 'एकूण',
     'pos.held_bills_modal': 'होल्ड केलेली बिले',
+    'pos.barcode_scanner_ready': 'बारकोड स्कॅनर सज्ज (स्कॅन करून बिलिंग करा)',
+    'pos.barcode_scanned': 'बारकोड स्कॅन करून औषध जोडले',
 
     // Customer Khata
     'khata.total_bills': 'एकूण नोंदवलेली बिले:',
@@ -411,6 +417,8 @@ export const translations: Record<Language, TranslationDictionary> = {
     'inv.pricing_section': 'औषध किंमत व दर तपशील',
     'inv.initial_stock': 'प्रारंभिक साठा संख्या',
     'inv.initial_batch': 'प्रारंभिक बॅच नंबर',
+    'inv.barcode_btn': 'बारकोड स्टिकर',
+    'inv.generate_barcodes': 'सर्व बारकोड तयार करा',
 
     // Expiry Alerts
     'alerts.title': 'औषध मुदत व कमी साठा नियंत्रण',
