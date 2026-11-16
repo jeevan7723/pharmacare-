@@ -170,7 +170,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     'inv.col_rack': 'Rack',
     'inv.col_stock': 'Total Stock',
     'inv.col_batches': 'Batches',
+    'inv.col_price': 'Price / MRP',
     'inv.col_actions': 'Actions',
+    'inv.mrp': 'MRP (Maximum Retail Price)',
+    'inv.sale_rate': 'Sale Rate',
+    'inv.purchase_rate': 'Purchase / Cost Rate',
+    'inv.stock_value': 'Stock Valuation (MRP)',
+    'inv.pricing_section': 'Medicine Pricing & Rates',
+    'inv.initial_stock': 'Initial Stock Quantity',
+    'inv.initial_batch': 'Initial Batch Number',
 
     // Expiry Alerts
     'alerts.title': 'Drug Expiry & Low Stock Watchtower',
@@ -394,7 +402,15 @@ export const translations: Record<Language, TranslationDictionary> = {
     'inv.col_rack': 'रॅक क्र.',
     'inv.col_stock': 'शिल्लक साठा',
     'inv.col_batches': 'बॅचेस',
+    'inv.col_price': 'किंमत / एमआरपी',
     'inv.col_actions': 'कृती',
+    'inv.mrp': 'एमआरपी (कमाल किरकोळ किंमत)',
+    'inv.sale_rate': 'विक्री दर',
+    'inv.purchase_rate': 'खरेदी दर',
+    'inv.stock_value': 'एकूण साठ्याचे मूल्य (एमआरपी)',
+    'inv.pricing_section': 'औषध किंमत व दर तपशील',
+    'inv.initial_stock': 'प्रारंभिक साठा संख्या',
+    'inv.initial_batch': 'प्रारंभिक बॅच नंबर',
 
     // Expiry Alerts
     'alerts.title': 'औषध मुदत व कमी साठा नियंत्रण',

@@ -28,6 +28,9 @@ export interface Medicine {
   minStockAlert: number; // e.g. 15
   defaultGstPercent: number; // 0, 5, 12, 18
   description?: string;
+  mrp?: number;          // Maximum Retail Price
+  saleRate?: number;     // Selling rate
+  purchaseRate?: number; // Cost price (excl. tax)
   createdAt: string;
 }
 

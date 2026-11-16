@@ -1,4 +1,4 @@
-  import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
@@ -13,6 +13,7 @@ import {
   Calendar,
   Layers,
   ArrowUpDown,
+  IndianRupee,
 } from 'lucide-react';
 import { db } from '../db/db';
 import { Medicine, Batch, MedicineCategory, ScheduleType, StoreSettings } from '../types';
@@ -60,6 +61,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
   // Add / Edit Medicine Modal
   const [isMedModalOpen, setIsMedModalOpen] = useState(false);
   const [editingMedId, setEditingMedId] = useState<string | null>(null);
+  const [initialStockQty, setInitialStockQty] = useState<number>(50);
+  const [initialBatchNo, setInitialBatchNo] = useState<string>('');
   const [medForm, setMedForm] = useState<Partial<Medicine>>({
     name: '',
     genericName: '',
@@ -73,6 +76,9 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
     packSize: 10,
     minStockAlert: 15,
     defaultGstPercent: 12,
+    mrp: 0,
+    saleRate: 0,
+    purchaseRate: 0,
   });
 
   // Add Batch Modal
@@ -102,6 +108,38 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
     loadData();
   }, []);
 
+  // Helper to extract pricing info for a medicine
+  const getMedicinePricing = (med: Medicine, medBatches: Batch[]) => {
+    if (medBatches.length > 0) {
+      const mrps = medBatches.map((b) => b.mrp).filter((p) => typeof p === 'number' && p > 0);
+      const saleRates = medBatches.map((b) => b.saleRate).filter((p) => typeof p === 'number' && p > 0);
+      const purchaseRates = medBatches.map((b) => b.purchaseRate).filter((p) => typeof p === 'number' && p > 0);
+
+      const minMrp = mrps.length > 0 ? Math.min(...mrps) : (med.mrp || 0);
+      const maxMrp = mrps.length > 0 ? Math.max(...mrps) : (med.mrp || 0);
+      const minSale = saleRates.length > 0 ? Math.min(...saleRates) : (med.saleRate || 0);
+      const maxSale = saleRates.length > 0 ? Math.max(...saleRates) : (med.saleRate || 0);
+
+      const latestBatch = medBatches[medBatches.length - 1];
+
+      return {
+        hasBatches: true,
+        mrpRange: minMrp !== maxMrp ? { min: minMrp, max: maxMrp } : null,
+        primaryMrp: latestBatch?.mrp || med.mrp || minMrp,
+        saleRate: latestBatch?.saleRate || med.saleRate || minSale,
+        purchaseRate: latestBatch?.purchaseRate || med.purchaseRate || (purchaseRates[0] || 0),
+      };
+    }
+
+    return {
+      hasBatches: false,
+      mrpRange: null,
+      primaryMrp: med.mrp || 0,
+      saleRate: med.saleRate || med.mrp || 0,
+      purchaseRate: med.purchaseRate || 0,
+    };
+  };
+
   // Filter medicines
   const filteredMeds = medicines.filter((m) => {
     const matchesSearch =
@@ -118,6 +156,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
   });
 
   const uniqueRacks = Array.from(new Set(medicines.map((m) => m.rack))).sort();
+  const totalStockUnits = batches.reduce((sum, b) => sum + (b.stockQty || 0), 0);
+  const totalStockValuation = batches.reduce((sum, b) => sum + ((b.stockQty || 0) * (b.mrp || 0)), 0);
 
   // Open Add Medicine Modal
   const openAddMedModal = () => {
@@ -135,15 +175,27 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       packSize: 10,
       minStockAlert: 15,
       defaultGstPercent: 12,
+      mrp: 0,
+      saleRate: 0,
+      purchaseRate: 0,
     });
+    setInitialStockQty(50);
+    setInitialBatchNo(`B${Math.floor(10000 + Math.random() * 90000)}`);
     setIsMedModalOpen(true);
     medDialogRef.current?.showModal();
   };
 
   // Open Edit Medicine Modal
   const openEditMedModal = (m: Medicine) => {
+    const medBatches = batches.filter((b) => b.medicineId === m.id);
+    const pricing = getMedicinePricing(m, medBatches);
     setEditingMedId(m.id);
-    setMedForm(m);
+    setMedForm({
+      ...m,
+      mrp: m.mrp || pricing.primaryMrp || 0,
+      saleRate: m.saleRate || pricing.saleRate || 0,
+      purchaseRate: m.purchaseRate || pricing.purchaseRate || 0,
+    });
     setIsMedModalOpen(true);
     medDialogRef.current?.showModal();
   };
@@ -161,18 +213,90 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       return;
     }
 
+    const mrp = Number(medForm.mrp) || 0;
+    const saleRate = Number(medForm.saleRate) || mrp;
+    const purchaseRate = Number(medForm.purchaseRate) || 0;
+
     if (editingMedId) {
-      await db.medicines.update(editingMedId, medForm);
+      const updatedMed: Partial<Medicine> = {
+        ...medForm,
+        mrp,
+        saleRate,
+        purchaseRate,
+      };
+      await db.medicines.update(editingMedId, updatedMed);
       const updated = await db.medicines.get(editingMedId);
       if (updated) syncMedicineToCloud(updated);
+
+      // If user updated price and batches exist, keep batch price updated
+      const existingBatches = await db.batches.where('medicineId').equals(editingMedId).toArray();
+      if (existingBatches.length > 0 && mrp > 0) {
+        for (const b of existingBatches) {
+          if (b.mrp === 0 || existingBatches.length === 1) {
+            await db.batches.update(b.id, {
+              mrp,
+              saleRate,
+              purchaseRate: purchaseRate || b.purchaseRate,
+            });
+            const updatedB = await db.batches.get(b.id);
+            if (updatedB) syncBatchToCloud(updatedB);
+          }
+        }
+      } else if (existingBatches.length === 0 && (mrp > 0 || initialStockQty > 0)) {
+        // Create initial batch if medicine had none
+        const today = new Date();
+        const expDate = new Date(today.getFullYear() + 2, today.getMonth(), 1);
+        const expStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
+        const autoBatch: Batch = {
+          id: `batch-${Date.now()}`,
+          medicineId: editingMedId,
+          medicineName: updated?.name || medForm.name || '',
+          batchNumber: `B${Math.floor(10000 + Math.random() * 90000)}`,
+          expiryDate: expStr,
+          purchaseRate,
+          mrp,
+          saleRate,
+          stockQty: initialStockQty || 0,
+          barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+          createdAt: new Date().toISOString(),
+        };
+        await db.batches.put(autoBatch);
+        syncBatchToCloud(autoBatch);
+      }
     } else {
+      const newMedId = `med-${Date.now()}`;
       const newMed: Medicine = {
         ...(medForm as Medicine),
-        id: `med-${Date.now()}`,
+        id: newMedId,
+        mrp,
+        saleRate,
+        purchaseRate,
         createdAt: new Date().toISOString(),
       };
       await db.medicines.put(newMed);
       syncMedicineToCloud(newMed);
+
+      // Automatically create the initial batch so medicine has price & stock in POS immediately
+      if (mrp > 0 || initialStockQty > 0) {
+        const today = new Date();
+        const expDate = new Date(today.getFullYear() + 2, today.getMonth(), 1);
+        const expStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
+        const autoBatch: Batch = {
+          id: `batch-${Date.now()}`,
+          medicineId: newMedId,
+          medicineName: newMed.name,
+          batchNumber: initialBatchNo.trim() || `B${Math.floor(10000 + Math.random() * 90000)}`,
+          expiryDate: expStr,
+          purchaseRate,
+          mrp,
+          saleRate,
+          stockQty: initialStockQty || 0,
+          barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
+          createdAt: new Date().toISOString(),
+        };
+        await db.batches.put(autoBatch);
+        syncBatchToCloud(autoBatch);
+      }
     }
 
     closeMedModal();
@@ -195,8 +319,14 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
   // Open Add Batch Modal
   const openAddBatchModal = (med: Medicine) => {
     setTargetMedForBatch(med);
+    const medBatches = batches.filter((b) => b.medicineId === med.id);
+    const pricing = getMedicinePricing(med, medBatches);
+    const defaultMrp = pricing.primaryMrp || med.mrp || 80;
+    const defaultSale = pricing.saleRate || med.saleRate || defaultMrp;
+    const defaultPurchase = pricing.purchaseRate || med.purchaseRate || 50;
+
     const today = new Date();
-    // Default expiry 18 months ahead
+    // Default expiry 18-24 months ahead
     const expDate = new Date(today.getFullYear() + 2, today.getMonth(), 1);
     const expStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
 
@@ -205,9 +335,9 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       medicineName: med.name,
       batchNumber: `B${Math.floor(10000 + Math.random() * 90000)}`,
       expiryDate: expStr,
-      purchaseRate: 50,
-      mrp: 80,
-      saleRate: 80,
+      purchaseRate: defaultPurchase,
+      mrp: defaultMrp,
+      saleRate: defaultSale,
       stockQty: 50,
       barcode: `890${Math.floor(100000000 + Math.random() * 900000000)}`,
     });
@@ -263,7 +393,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             {t('inv.title', 'Pharmacy Inventory & Rack Locator')}
           </h2>
           <p className="text-xs text-slate-500">
-            {medicines.length} {t('dash.medicines', 'Medicines')} &bull; {batches.length} {t('dash.batches', 'Batches')} {t('dash.units_in_stock', 'units in stock')}
+            {medicines.length} {t('dash.medicines', 'Medicines')} &bull; {batches.length} {t('dash.batches', 'Batches')} &bull; {totalStockUnits} {t('dash.units_in_stock', 'units in stock')}
           </p>
         </div>
 
@@ -275,6 +405,49 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             <Plus className="w-4 h-4" />
             <span>{t('inv.add_medicine', 'Add New Medicine Master')}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Stock & Valuation Stats Banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+            <Package className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t('dash.medicines', 'Medicines')}</div>
+            <div className="text-base font-bold text-slate-900 font-mono">{medicines.length}</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
+            <MapPin className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Racks & Locations</div>
+            <div className="text-base font-bold text-slate-900 font-mono">{uniqueRacks.length} Racks</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t('inv.col_stock', 'Total Stock')}</div>
+            <div className="text-base font-bold text-slate-900 font-mono">{totalStockUnits} Units</div>
+          </div>
+        </div>
+
+        <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+            <IndianRupee className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t('inv.stock_value', 'Stock Valuation (MRP)')}</div>
+            <div className="text-base font-bold text-teal-700 font-mono">{formatCurrency(totalStockValuation, symbol)}</div>
+          </div>
         </div>
       </div>
 
@@ -337,20 +510,21 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-white font-bold border-b border-slate-800">
               <tr>
-                <th className="py-3 px-3">Medicine Name & Formulation</th>
-                <th className="py-3 px-2">Category</th>
-                <th className="py-3 px-2">Rack Location</th>
+                <th className="py-3 px-3">{t('inv.col_name', 'Medicine Name & Formulation')}</th>
+                <th className="py-3 px-2">{t('inv.col_category', 'Category')}</th>
+                <th className="py-3 px-2">{t('inv.col_rack', 'Rack Location')}</th>
                 <th className="py-3 px-2">Schedule / HSN</th>
                 <th className="py-3 px-2 text-center">Pack</th>
-                <th className="py-3 px-2">Active Batches (Stock / Exp)</th>
-                <th className="py-3 px-2 text-center">Total Stock</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-3 px-3 text-right">{t('inv.col_price', 'Price / MRP')}</th>
+                <th className="py-3 px-2">{t('inv.col_batches', 'Active Batches (Stock / Exp / Price)')}</th>
+                <th className="py-3 px-2 text-center">{t('inv.col_stock', 'Total Stock')}</th>
+                <th className="py-3 px-3 text-right">{t('inv.col_actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
               {filteredMeds.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-500">
+                  <td colSpan={9} className="p-8 text-center text-slate-500">
                     No medicines match the selected filter criteria.
                   </td>
                 </tr>
@@ -359,6 +533,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                   const medBatches = batches.filter((b) => b.medicineId === med.id);
                   const totalStock = medBatches.reduce((sum, b) => sum + b.stockQty, 0);
                   const isLowStock = totalStock <= med.minStockAlert;
+                  const pricing = getMedicinePricing(med, medBatches);
 
                   return (
                     <tr key={med.id} className="hover:bg-slate-50">
@@ -407,27 +582,55 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                         <div className="text-[10px] text-slate-500">{med.unit}</div>
                       </td>
 
-                      {/* Batches Pill List */}
+                      {/* Price / MRP Column */}
+                      <td className="py-3 px-3 text-right">
+                        <div className="font-mono font-bold text-slate-900 text-sm">
+                          {pricing.mrpRange ? (
+                            <span>
+                              {formatCurrency(pricing.mrpRange.min, symbol)} - {formatCurrency(pricing.mrpRange.max, symbol)}
+                            </span>
+                          ) : pricing.primaryMrp > 0 ? (
+                            <span>{formatCurrency(pricing.primaryMrp, symbol)}</span>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">Not set</span>
+                          )}
+                        </div>
+                        {pricing.saleRate > 0 && pricing.saleRate !== pricing.primaryMrp && (
+                          <div className="text-[10px] text-emerald-700 font-bold font-mono">
+                            Sale: {formatCurrency(pricing.saleRate, symbol)}
+                          </div>
+                        )}
+                        {pricing.purchaseRate > 0 && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Cost: {formatCurrency(pricing.purchaseRate, symbol)}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Batches Pill List with Price */}
                       <td className="py-3 px-2">
                         {medBatches.length === 0 ? (
                           <span className="text-[10px] text-red-500 italic">No batches created</span>
                         ) : (
-                          <div className="flex flex-wrap gap-1.5 max-w-xs">
+                          <div className="flex flex-wrap gap-1.5 max-w-sm">
                             {medBatches.map((b) => {
                               const exp = checkExpiryStatus(b.expiryDate);
                               return (
                                 <div
                                   key={b.id}
-                                  className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 bg-white flex items-center gap-1 group relative shadow-2xs"
+                                  className="text-[10px] px-2 py-0.5 rounded-lg border border-slate-200 bg-white flex items-center gap-1.5 group relative shadow-2xs hover:border-emerald-400 transition-colors"
                                 >
                                   <span className="font-mono font-bold text-slate-700">B:{b.batchNumber}</span>
                                   <span className={`px-1 rounded text-[9px] ${exp.badgeClass}`}>
                                     {b.expiryDate}
                                   </span>
                                   <span className="font-semibold text-slate-900">({b.stockQty})</span>
+                                  <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1 rounded text-[10px]">
+                                    {formatCurrency(b.saleRate || b.mrp, symbol)}
+                                  </span>
                                   <button
                                     onClick={() => handleDeleteBatch(b.id, b.batchNumber)}
-                                    className="hidden group-hover:inline-block text-red-400 hover:text-red-600 ml-1"
+                                    className="hidden group-hover:inline-block text-red-400 hover:text-red-600 ml-0.5"
                                     title="Delete batch"
                                   >
                                     &times;
@@ -660,6 +863,113 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
               />
             </div>
+          </div>
+
+          {/* Medicine Pricing & Rates Section */}
+          <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-950 uppercase tracking-wider">
+              <IndianRupee className="w-4 h-4 text-emerald-700" />
+              <span>{t('inv.pricing_section', 'Medicine Pricing & Rates')}</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  MRP ({symbol}) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">{symbol}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={medForm.mrp || ''}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value) || 0;
+                      setMedForm({
+                        ...medForm,
+                        mrp: val,
+                        saleRate: (!medForm.saleRate || medForm.saleRate === medForm.mrp) ? val : medForm.saleRate,
+                      });
+                    }}
+                    placeholder="0.00"
+                    className="w-full text-xs pl-7 pr-3 py-2 border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500">Maximum Retail Price</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Sale Rate ({symbol}) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">{symbol}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={medForm.saleRate || ''}
+                    onChange={(e) => setMedForm({ ...medForm, saleRate: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full text-xs pl-7 pr-3 py-2 border border-slate-300 rounded-lg font-mono font-bold focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500">Customer billing rate</span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Purchase Rate ({symbol})
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">{symbol}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={medForm.purchaseRate || ''}
+                    onChange={(e) => setMedForm({ ...medForm, purchaseRate: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                    className="w-full text-xs pl-7 pr-3 py-2 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+                <span className="text-[10px] text-slate-500">Cost from distributor</span>
+              </div>
+            </div>
+
+            {!editingMedId && (
+              <div className="grid grid-cols-2 gap-3 pt-2.5 border-t border-emerald-200/70">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {t('inv.initial_stock', 'Initial Stock Quantity')} (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={initialStockQty}
+                    onChange={(e) => setInitialStockQty(parseInt(e.target.value, 10) || 0)}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-bold bg-white"
+                  />
+                  <span className="text-[10px] text-slate-500">Creates first batch automatically</span>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {t('inv.initial_batch', 'Initial Batch Number')}
+                  </label>
+                  <input
+                    type="text"
+                    value={initialBatchNo}
+                    onChange={(e) => setInitialBatchNo(e.target.value.toUpperCase())}
+                    placeholder="e.g. B2601"
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold uppercase bg-white"
+                  />
+                  <span className="text-[10px] text-slate-500">Batch identifier on strip</span>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="bg-slate-100 -mx-6 -mb-6 p-4 flex justify-end space-x-2 border-t border-slate-200 mt-6">
