@@ -3,7 +3,7 @@ import {
   Users,
   Plus,
   Search,
-  DollarSign,
+  IndianRupee,
   Phone,
   FileText,
   CheckCircle2,
@@ -12,7 +12,7 @@ import {
   Banknote,
   QrCode,
   ArrowDownRight,
-  Receipt,
+  ReceiptIndianRupee,
   Printer,
   Eye,
   Calendar,
@@ -450,19 +450,19 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs flex items-center gap-1.5">
-              <Receipt className="w-4 h-4 text-emerald-600" />
+              <ReceiptIndianRupee className="w-4 h-4 text-emerald-600" />
               <span className="text-emerald-800 font-semibold">{t('khata.total_bills', 'Total Stored Bills: ')}</span>
               <strong className="text-emerald-950 font-mono">{invoices.length} {language === 'mr' ? 'बिले' : 'Bills'}</strong>
             </div>
 
             <div className="px-3 py-1.5 bg-blue-50 border border-blue-200 rounded-xl text-xs flex items-center gap-1.5">
-              <DollarSign className="w-4 h-4 text-blue-600" />
+              <IndianRupee className="w-4 h-4 text-blue-600" />
               <span className="text-blue-800 font-semibold">{language === 'mr' ? 'एकूण पेमेंट्स: ' : 'Total Payments: '}</span>
               <strong className="text-blue-950 font-mono">{payments.length} ({formatCurrency(totalCustomerPayments, symbol)})</strong>
             </div>
 
             <div className="px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs flex items-center gap-1.5">
-              <DollarSign className="w-4 h-4 text-red-600" />
+              <IndianRupee className="w-4 h-4 text-red-600" />
               <span className="text-red-700 font-semibold">{t('khata.total_due', 'Total Khata Due: ')}</span>
               <strong className="text-red-800 text-sm font-mono">{formatCurrency(totalOutstanding, symbol)}</strong>
             </div>
@@ -547,7 +547,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
             }`}
           >
-            <DollarSign className="w-4 h-4" />
+            <IndianRupee className="w-4 h-4" />
             <span>Customer Payments ({payments.length})</span>
             <span className="px-1.5 py-0.5 text-[10px] bg-blue-100 text-blue-800 rounded-full font-mono font-bold">
               {formatCurrency(totalCustomerPayments, symbol)}
@@ -563,7 +563,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-t-lg'
             }`}
           >
-            <Receipt className="w-4 h-4" />
+            <ReceiptIndianRupee className="w-4 h-4" />
             <span>All Store Bills & Invoices Register</span>
             <span className="px-1.5 py-0.5 text-[10px] bg-emerald-100 text-emerald-800 rounded-full font-mono font-bold">
               {invoices.length} Bills
@@ -761,7 +761,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
                 <div>
                   <div className="flex justify-between items-center mb-2">
                     <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                      <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                      <ReceiptIndianRupee className="w-3.5 h-3.5 text-emerald-600" />
                       Past Bills & Invoices ({customerInvoices.length})
                     </h4>
                     {customerInvoices.length > 0 && (
@@ -890,7 +890,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
-                <DollarSign className="w-5 h-5" />
+                <IndianRupee className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-[11px] font-bold text-slate-500 uppercase">{language === 'mr' ? 'एकूण पेमेंट्स संख्या' : 'Total Payments Count'}</div>
@@ -1076,7 +1076,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
                                 className="px-2.5 py-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 flex items-center gap-1 mx-auto transition-colors"
                                 title="View Bill Receipt"
                               >
-                                <Receipt className="w-3.5 h-3.5" />
+                                <ReceiptIndianRupee className="w-3.5 h-3.5" />
                                 <span>{language === 'mr' ? 'बिल पहा' : 'View Bill'}</span>
                               </button>
                             ) : (
@@ -1111,7 +1111,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 font-bold">
-                <Receipt className="w-5 h-5" />
+                <ReceiptIndianRupee className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-[11px] font-bold text-slate-500 uppercase">Bills Generated</div>
@@ -1121,7 +1121,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
 
             <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold">
-                <DollarSign className="w-5 h-5" />
+                <IndianRupee className="w-5 h-5" />
               </div>
               <div>
                 <div className="text-[11px] font-bold text-slate-500 uppercase">Total Sales Revenue</div>
@@ -1266,7 +1266,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
                   {filteredAllBills.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="p-12 text-center text-slate-400">
-                        <Receipt className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                        <ReceiptIndianRupee className="w-10 h-10 mx-auto text-slate-300 mb-2" />
                         <p className="font-semibold">No bills found matching current search/filter criteria.</p>
                       </td>
                     </tr>
@@ -1387,7 +1387,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
           <div className="flex items-center justify-between sm:justify-start gap-3">
             <div className="min-w-0">
               <h2 id="invoice-modal-title" className="text-sm sm:text-base font-bold flex items-center gap-2 truncate">
-                <Receipt className="w-4 h-4 text-emerald-400 shrink-0" />
+                <ReceiptIndianRupee className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span className="truncate">Invoice: {selectedInvoiceForModal?.invoiceNo}</span>
               </h2>
               <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">

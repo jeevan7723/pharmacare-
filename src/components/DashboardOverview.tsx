@@ -5,7 +5,7 @@ import {
   Package,
   AlertTriangle,
   Users,
-  DollarSign,
+  IndianRupee,
   PlusCircle,
   Truck,
   FileText,
@@ -14,7 +14,7 @@ import {
   ShieldAlert,
   Archive,
   Printer,
-  Receipt,
+  ReceiptIndianRupee,
   UserCheck,
 } from 'lucide-react';
 import { db } from '../db/db';
@@ -180,7 +180,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
             <span>{t('dash.month_sales', "This Month's Sales")}</span>
             <div className="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
-              <Receipt className="w-4 h-4" />
+              <ReceiptIndianRupee className="w-4 h-4" />
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
@@ -269,7 +269,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             className="p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left group"
           >
             <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center mb-2 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-              <DollarSign className="w-4 h-4" />
+              <IndianRupee className="w-4 h-4" />
             </div>
             <div className="text-xs font-bold text-slate-900">{t('dash.receive_khata', 'Receive Khata')}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.receive_khata_desc', 'Patient payment receipt')}</div>
@@ -280,7 +280,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             className="p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left group"
           >
             <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-800 flex items-center justify-center mb-2 group-hover:bg-teal-600 group-hover:text-white transition-colors">
-              <Receipt className="w-4 h-4" />
+              <ReceiptIndianRupee className="w-4 h-4" />
             </div>
             <div className="text-xs font-bold text-slate-900">{t('dash.gst_reports', 'GST Reports')}</div>
             <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.gst_reports_desc', 'GSTR-1 tax summary')}</div>
@@ -305,7 +305,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div className="lg:col-span-8 bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-emerald-600" />
+              <ReceiptIndianRupee className="w-4 h-4 text-emerald-600" />
               <span>{t('dash.recent_bills', 'Recent Counter Bills')}</span>
             </h3>
             <button

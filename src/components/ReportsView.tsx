@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   BarChart3,
   TrendingUp,
-  Receipt,
+  ReceiptIndianRupee,
   Download,
   Calendar,
   Printer,
-  DollarSign,
+  IndianRupee,
   PieChart,
   Eye,
   FileSpreadsheet,
@@ -228,7 +228,7 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
             <span>{t('reports.gst_collected', 'GST Tax Collected')}</span>
-            <Receipt className="w-4 h-4 text-teal-600" />
+            <ReceiptIndianRupee className="w-4 h-4 text-teal-600" />
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
             {formatCurrency(totalGst, symbol)}
@@ -242,7 +242,7 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
         <div className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex justify-between items-center text-slate-500 text-xs font-bold uppercase tracking-wider">
             <span>Discounts Conceded</span>
-            <DollarSign className="w-4 h-4 text-amber-600" />
+            <IndianRupee className="w-4 h-4 text-amber-600" />
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
             {formatCurrency(totalDiscounts, symbol)}
@@ -272,7 +272,7 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
         {/* GST Tax Slabs Table */}
         <div className="lg:col-span-6 bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
           <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-            <Receipt className="w-4 h-4 text-emerald-600" />
+            <ReceiptIndianRupee className="w-4 h-4 text-emerald-600" />
             GST Tax Slabs Summary (GSTR-1 Format)
           </h3>
 

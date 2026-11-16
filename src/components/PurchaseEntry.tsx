@@ -7,7 +7,6 @@ import {
   Calendar,
   FileSpreadsheet,
   Building2,
-  DollarSign,
   ArrowRight,
 } from 'lucide-react';
 import { db } from '../db/db';
