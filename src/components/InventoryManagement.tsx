@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+  import React, { useState, useEffect, useRef } from 'react';
 import {
   Package,
   Plus,
@@ -776,7 +776,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 value={batchForm.stockQty || 0}
                 onChange={(e) => setBatchForm({ ...batchForm, stockQty: parseInt(e.target.value, 10) || 0 })}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-bold"
-              /> 
+              />
             </div>
 
             <div>

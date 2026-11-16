@@ -61,7 +61,7 @@ export function initLiveSyncEngine() {
   db.customerPayments.hook('updating', function (this: any, _modifications, primKey, _obj) {
     if (isSyncingFromCloud) return;
     this.onsuccess = (updatedObj: any) => {
-      if (updatedObj) syncCustomerPaymentToCloud(updatedObj);
+      if (updatedObj) syncCustomerPaymentToCloud(updatedObj); 
       else db.customerPayments.get(primKey).then((full) => full && syncCustomerPaymentToCloud(full));
     };
   });
