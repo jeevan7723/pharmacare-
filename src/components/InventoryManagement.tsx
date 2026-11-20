@@ -18,7 +18,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { db } from '../db/db';
-import { Medicine, Batch, MedicineCategory, ScheduleType, StoreSettings } from '../types';
+import { Medicine, Batch, MedicineCategory, ScheduleType, StoreSettings, Workspace } from '../types';
 import { formatCurrency, checkExpiryStatus } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import {
@@ -30,7 +30,7 @@ import {
 import { BarcodeModal } from './BarcodeModal';
 import { generateMedicineBarcode, ensureAllBarcodes } from '../utils/barcodeGenerator';
 
-const CATEGORIES: MedicineCategory[] = [
+const PHARMA_CATEGORIES: MedicineCategory[] = [
   'Tablets',
   'Capsules',
   'Syrups & Suspensions',
@@ -44,16 +44,146 @@ const CATEGORIES: MedicineCategory[] = [
   'Personal Care',
 ];
 
+const GROCERY_CATEGORIES = [
+  'Rice & Grains',
+  'Pulses & Flours',
+  'Edible Oils & Ghee',
+  'Spices & Masalas',
+  'Dairy & Eggs',
+  'Snacks & Biscuits',
+  'Beverages & Tea',
+  'Household & Cleaning',
+  'Personal Care',
+];
+
+const TECH_CATEGORIES = [
+  'Smartphones',
+  'Laptops & Computers',
+  'Audio & Earphones',
+  'Smart Watches',
+  'TV & Entertainment',
+  'Accessories & Cables',
+  'Storage & SSD',
+  'Gaming & Peripherals',
+];
+
+const CLOTHING_CATEGORIES = [
+  "Men's Shirts & T-Shirts",
+  "Men's Jeans & Trousers",
+  "Women's Ethnic & Sarees",
+  "Women's Western Wear",
+  "Kids & Infants",
+  "Footwear & Shoes",
+  "Winter Wear & Jackets",
+  "Accessories & Bags",
+];
+
 const SCHEDULES: ScheduleType[] = ['OTC', 'Schedule H', 'Schedule H1', 'Schedule X', 'Narcotic'];
 
 interface InventoryProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
   onRefreshStats: () => void;
+  autoOpenAddModal?: boolean;
+  onAddModalOpened?: () => void;
 }
 
-export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefreshStats }) => {
-  const symbol = settings?.currencySymbol || '₹';
+export const InventoryManagement: React.FC<InventoryProps> = ({
+  settings,
+  currentWorkspace,
+  onRefreshStats,
+  autoOpenAddModal,
+  onAddModalOpened,
+}) => {
+  const symbol = currentWorkspace?.settings.currencySymbol || settings?.currencySymbol || '₹';
   const { t, language } = useLanguage();
+
+  const targetWsId = currentWorkspace?.id || 'ws_healthplus';
+  const industry = currentWorkspace?.industry || 'pharmacy';
+  const categories =
+    industry === 'grocery'
+      ? GROCERY_CATEGORIES
+      : industry === 'electronics'
+      ? TECH_CATEGORIES
+      : industry === 'clothing'
+      ? CLOTHING_CATEGORIES
+      : PHARMA_CATEGORIES;
+
+  const isPharmacy = industry === 'pharmacy';
+  const isGrocery = industry === 'grocery';
+  const isTech = industry === 'electronics';
+  const isFashion = industry === 'clothing';
+
+  const terms = {
+    itemName: isPharmacy
+      ? 'Medicine'
+      : isGrocery
+      ? 'Grocery Product'
+      : isTech
+      ? 'Electronic Product'
+      : isFashion
+      ? 'Fashion Product'
+      : 'Product',
+    addButton: isPharmacy
+      ? t('inv.add_medicine', 'Add New Medicine Master')
+      : isGrocery
+      ? 'Add Grocery Product'
+      : isTech
+      ? 'Add Electronic Product'
+      : isFashion
+      ? 'Add Fashion Product'
+      : 'Add New Product',
+    title: isPharmacy
+      ? t('inv.title', 'Pharmacy Inventory & Rack Locator')
+      : isGrocery
+      ? 'Grocery & Supermarket Inventory'
+      : isTech
+      ? 'Electronics & Gadgets Inventory'
+      : isFashion
+      ? 'Fashion & Apparel Inventory'
+      : 'Product Inventory & Stock',
+    searchPh: isPharmacy
+      ? 'Search medicine, salt, rack...'
+      : isGrocery
+      ? 'Search grocery product, brand, barcode...'
+      : isTech
+      ? 'Search device, model, brand, serial...'
+      : isFashion
+      ? 'Search apparel, brand, size, color...'
+      : 'Search product, barcode, brand...',
+    colName: isPharmacy
+      ? t('inv.col_name', 'Medicine Name & Formulation')
+      : isGrocery
+      ? 'Product Name & Brand'
+      : isTech
+      ? 'Device, Model & Brand'
+      : isFashion
+      ? 'Apparel, Size & Color'
+      : 'Product Name & Specifications',
+    brandLabel: isPharmacy
+      ? 'Manufacturer'
+      : isTech
+      ? 'Brand / Manufacturer'
+      : isFashion
+      ? 'Brand / Label'
+      : 'Brand / Company',
+    brandPh: isPharmacy
+      ? 'e.g. Cipla, Sun Pharma'
+      : isTech
+      ? 'e.g. OnePlus, Apple, Samsung, BoAt'
+      : isFashion
+      ? "e.g. Levi's, Zara, Raymond"
+      : 'e.g. India Gate, Fortune, Amul',
+    namePlaceholder: isPharmacy
+      ? 'e.g. Dolo 650 Strip / Augmentin 625'
+      : isGrocery
+      ? 'e.g. Aashirvaad Shudh Chakki Atta (5kg)'
+      : isTech
+      ? 'e.g. Wireless Noise Cancelling Earbuds'
+      : isFashion
+      ? 'e.g. Slim Fit Denim Cotton Jeans'
+      : 'e.g. Standard Product Name',
+  };
 
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -122,11 +252,15 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
 
   const loadData = async () => {
     await ensureAllBarcodes();
-    const m = await db.medicines.toArray();
-    const b = await db.batches.toArray();
-    setMedicines(m);
-    setBatches(b);
+    const allM = await db.medicines.toArray();
+    const allB = await db.batches.toArray();
+    setMedicines(allM.filter((m) => (m.workspaceId || 'ws_healthplus') === targetWsId));
+    setBatches(allB.filter((b) => (b.workspaceId || 'ws_healthplus') === targetWsId));
   };
+
+  useEffect(() => {
+    loadData();
+  }, [targetWsId]);
 
   const handleSyncAllBarcodes = async () => {
     setIsGeneratingBarcodes(true);
@@ -200,34 +334,54 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
   const totalStockUnits = batches.reduce((sum, b) => sum + (b.stockQty || 0), 0);
   const totalStockValuation = batches.reduce((sum, b) => sum + ((b.stockQty || 0) * (b.mrp || 0)), 0);
 
-  // Open Add Medicine Modal
+  // Open Add Product / Medicine Modal
   const openAddMedModal = () => {
     setEditingMedId(null);
+    const defaultUnit = isGrocery ? 'Kg' : isTech || isFashion ? 'Piece' : 'Strip';
+    const defaultHsn = isGrocery ? '10063020' : isTech ? '85171300' : isFashion ? '62052000' : '30049099';
+    const defaultPack = isPharmacy ? 10 : 1;
     setMedForm({
       name: '',
-      genericName: '',
+      genericName: isPharmacy ? '' : 'Standard Product',
       manufacturer: '',
-      category: 'Tablets',
-      rack: 'Rack A',
-      shelf: 'Shelf 1',
-      hsnCode: '30049099',
+      category: categories[0] as MedicineCategory,
+      rack: isPharmacy ? 'Rack A' : 'Section 1',
+      shelf: isPharmacy ? 'Shelf 1' : 'Aisle 1',
+      hsnCode: defaultHsn,
       schedule: 'OTC',
-      unit: 'Strip',
-      packSize: 10,
-      minStockAlert: 15,
-      defaultGstPercent: 12,
+      unit: defaultUnit,
+      packSize: defaultPack,
+      minStockAlert: 10,
+      defaultGstPercent: isPharmacy ? 12 : isGrocery ? 5 : 18,
       mrp: 0,
       saleRate: 0,
       purchaseRate: 0,
       barcode: generateMedicineBarcode(),
+      brand: '',
+      modelNumber: '',
+      warrantyMonths: 12,
+      serialNumber: '',
+      size: 'M',
+      color: '',
     });
     setInitialStockQty(50);
-    setInitialBatchNo(`B${Math.floor(10000 + Math.random() * 90000)}`);
+    setInitialBatchNo(
+      isPharmacy
+        ? `B${Math.floor(10000 + Math.random() * 90000)}`
+        : `LOT-${Math.floor(100 + Math.random() * 900)}`
+    );
     setIsMedModalOpen(true);
     medDialogRef.current?.showModal();
   };
 
-  // Open Edit Medicine Modal
+  useEffect(() => {
+    if (autoOpenAddModal) {
+      openAddMedModal();
+      onAddModalOpened?.();
+    }
+  }, [autoOpenAddModal]);
+
+  // Open Edit Product / Medicine Modal
   const openEditMedModal = (m: Medicine) => {
     const medBatches = batches.filter((b) => b.medicineId === m.id);
     const pricing = getMedicinePricing(m, medBatches);
@@ -248,11 +402,15 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
     medDialogRef.current?.close();
   };
 
-  // Save Medicine
+  // Save Product / Medicine
   const handleSaveMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!medForm.name || !medForm.genericName) {
-      alert('Please enter Medicine Name and Generic Salt.');
+    if (!medForm.name?.trim()) {
+      alert(`Please enter ${terms.itemName} Name.`);
+      return;
+    }
+    if (isPharmacy && !medForm.genericName?.trim()) {
+      alert('Please enter Generic Salt / Composition.');
       return;
     }
 
@@ -299,6 +457,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         const expStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
         const autoBatch: Batch = {
           id: `batch-${Date.now()}`,
+          workspaceId: targetWsId,
           medicineId: editingMedId,
           medicineName: updated?.name || medForm.name || '',
           batchNumber: `B${Math.floor(10000 + Math.random() * 90000)}`,
@@ -318,6 +477,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       const newMed: Medicine = {
         ...(medForm as Medicine),
         id: newMedId,
+        workspaceId: targetWsId,
         mrp,
         saleRate,
         purchaseRate,
@@ -334,6 +494,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         const expStr = `${expDate.getFullYear()}-${String(expDate.getMonth() + 1).padStart(2, '0')}`;
         const autoBatch: Batch = {
           id: `batch-${Date.now()}`,
+          workspaceId: targetWsId,
           medicineId: newMedId,
           medicineName: newMed.name,
           batchNumber: initialBatchNo.trim() || `B${Math.floor(10000 + Math.random() * 90000)}`,
@@ -413,6 +574,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
     const newBatch: Batch = {
       ...(batchForm as Batch),
       id: `batch-${Date.now()}`,
+      workspaceId: targetWsId,
       medicineId: targetMedForBatch.id,
       medicineName: targetMedForBatch.name,
       createdAt: new Date().toISOString(),
@@ -441,10 +603,10 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <Package className="w-5 h-5 text-emerald-600" />
-            {t('inv.title', 'Pharmacy Inventory & Rack Locator')}
+            {terms.title}
           </h2>
           <p className="text-xs text-slate-500">
-            {medicines.length} {t('dash.medicines', 'Medicines')} &bull; {batches.length} {t('dash.batches', 'Batches')} &bull; {totalStockUnits} {t('dash.units_in_stock', 'units in stock')}
+            {medicines.length} {terms.itemName}s &bull; {batches.length} Batches &bull; {totalStockUnits} units in stock
           </p>
         </div>
 
@@ -453,7 +615,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             onClick={handleSyncAllBarcodes}
             disabled={isGeneratingBarcodes}
             className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
-            title="Ensure every medicine and batch has an EAN-13 barcode generated"
+            title="Ensure every product and batch has an EAN-13 barcode generated"
           >
             <Barcode className="w-4 h-4 text-emerald-600" />
             <span>{isGeneratingBarcodes ? 'Generating...' : t('inv.generate_barcodes', 'Generate All Barcodes')}</span>
@@ -463,7 +625,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center gap-1.5 transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>{t('inv.add_medicine', 'Add New Medicine Master')}</span>
+            <span>{terms.addButton}</span>
           </button>
         </div>
       </div>
@@ -475,7 +637,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             <Package className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{t('dash.medicines', 'Medicines')}</div>
+            <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{terms.itemName}s</div>
             <div className="text-base font-bold text-slate-900 font-mono">{medicines.length}</div>
           </div>
         </div>
@@ -519,7 +681,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search medicine, salt, rack..."
+            placeholder={terms.searchPh}
             className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
           />
         </div>
@@ -529,54 +691,60 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
           onChange={(e) => setSelectedCategory(e.target.value)}
           className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
         >
-          <option value="all">All Categories ({CATEGORIES.length})</option>
-          {CATEGORIES.map((c) => (
+          <option value="all">All Categories ({categories.length})</option>
+          {categories.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
         </select>
 
-        <select
-          value={selectedSchedule}
-          onChange={(e) => setSelectedSchedule(e.target.value)}
-          className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
-        >
-          <option value="all">All Schedules (OTC & Rx)</option>
-          {SCHEDULES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        {isPharmacy && (
+          <select
+            value={selectedSchedule}
+            onChange={(e) => setSelectedSchedule(e.target.value)}
+            className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
+          >
+            <option value="all">All Schedules (OTC & Rx)</option>
+            {SCHEDULES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        )}
 
-        <select
-          value={selectedRack}
-          onChange={(e) => setSelectedRack(e.target.value)}
-          className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
-        >
-          <option value="all">All Racks / Storage ({uniqueRacks.length})</option>
-          {uniqueRacks.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </select>
+        {currentWorkspace?.features.enableRacksAndShelves !== false && (
+          <select
+            value={selectedRack}
+            onChange={(e) => setSelectedRack(e.target.value)}
+            className="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-white text-slate-700"
+          >
+            <option value="all">All Racks / Storage ({uniqueRacks.length})</option>
+            {uniqueRacks.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {/* Medicines Table */}
+      {/* Product / Medicine Table */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-900 text-white font-bold border-b border-slate-800">
               <tr>
-                <th className="py-3 px-3">{t('inv.col_name', 'Medicine Name & Formulation')}</th>
+                <th className="py-3 px-3">{terms.colName}</th>
                 <th className="py-3 px-2">{t('inv.col_category', 'Category')}</th>
-                <th className="py-3 px-2">{t('inv.col_rack', 'Rack Location')}</th>
-                <th className="py-3 px-2">Schedule / HSN</th>
+                {currentWorkspace?.features.enableRacksAndShelves !== false && (
+                  <th className="py-3 px-2">{t('inv.col_rack', 'Rack Location')}</th>
+                )}
+                <th className="py-3 px-2">{isPharmacy ? 'Schedule / HSN' : 'HSN Code'}</th>
                 <th className="py-3 px-2 text-center">Pack</th>
-                <th className="py-3 px-3 text-right">{t('inv.col_price', 'Price / MRP')}</th>
-                <th className="py-3 px-2">{t('inv.col_batches', 'Active Batches (Stock / Exp / Price)')}</th>
+                <th className="py-3 px-3 text-right">{language === 'mr' ? 'एमआरपी (MRP)' : 'MRP'}</th>
+                <th className="py-3 px-2">{isPharmacy ? t('inv.col_batches', 'Active Batches (Stock / Exp / Price)') : 'Batches & Stock'}</th>
                 <th className="py-3 px-2 text-center">{t('inv.col_stock', 'Total Stock')}</th>
                 <th className="py-3 px-3 text-right">{t('inv.col_actions', 'Actions')}</th>
               </tr>
@@ -597,11 +765,35 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
 
                   return (
                     <tr key={med.id} className="hover:bg-slate-50">
-                      {/* Name & Generic & Barcode */}
+                      {/* Name & Details & Barcode */}
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900 text-sm">{med.name}</div>
-                        <div className="text-[11px] text-emerald-800 font-medium">{med.genericName}</div>
-                        <div className="text-[10px] text-slate-400">{med.manufacturer}</div>
+                        {isPharmacy ? (
+                          <div className="text-[11px] text-emerald-800 font-medium">{med.genericName}</div>
+                        ) : isTech ? (
+                          <div className="text-[11px] text-blue-700 font-medium flex items-center gap-2 mt-0.5">
+                            {med.modelNumber && <span>Model: {med.modelNumber}</span>}
+                            {med.warrantyMonths ? (
+                              <span className="px-1.5 py-0.2 rounded bg-blue-50 border border-blue-200 text-[10px]">
+                                {med.warrantyMonths}m Warranty
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : isFashion ? (
+                          <div className="text-[11px] text-purple-700 font-medium flex items-center gap-1.5 mt-0.5">
+                            {med.size && (
+                              <span className="px-1.5 py-0.2 rounded bg-purple-50 border border-purple-200 text-[10px] font-bold">
+                                Size: {med.size}
+                              </span>
+                            )}
+                            {med.color && <span className="text-slate-600 text-[10px]">Color: {med.color}</span>}
+                          </div>
+                        ) : (
+                          med.genericName && med.genericName !== 'Standard Product' && (
+                            <div className="text-[11px] text-slate-500">{med.genericName}</div>
+                          )
+                        )}
+                        <div className="text-[10px] text-slate-400 mt-0.5">{med.brand || med.manufacturer}</div>
                         {med.barcode && (
                           <button
                             onClick={() => openBarcodeModal(med)}
@@ -622,28 +814,32 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                       </td>
 
                       {/* Rack & Shelf */}
-                      <td className="py-3 px-2 font-mono text-slate-700">
-                        <div className="flex items-center gap-1 text-slate-800 font-semibold">
-                          <MapPin className="w-3.5 h-3.5 text-amber-600" />
-                          <span>{med.rack}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500">{med.shelf}</div>
-                      </td>
+                      {currentWorkspace?.features.enableRacksAndShelves !== false && (
+                        <td className="py-3 px-2 font-mono text-slate-700">
+                          <div className="flex items-center gap-1 text-slate-800 font-semibold">
+                            <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                            <span>{med.rack}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-500">{med.shelf}</div>
+                        </td>
+                      )}
 
                       {/* Schedule & HSN */}
                       <td className="py-3 px-2">
-                        <div>
-                          <span
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                              med.schedule === 'Schedule H' || med.schedule === 'Schedule H1'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}
-                          >
-                            {med.schedule}
-                          </span>
-                        </div>
-                        <div className="text-[10px] font-mono text-slate-500 mt-1">HSN: {med.hsnCode}</div>
+                        {isPharmacy && (
+                          <div>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                med.schedule === 'Schedule H' || med.schedule === 'Schedule H1'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}
+                            >
+                              {med.schedule}
+                            </span>
+                          </div>
+                        )}
+                        <div className="text-[10px] font-mono text-slate-500 mt-0.5">HSN: {med.hsnCode}</div>
                       </td>
 
                       {/* Pack Size */}
@@ -652,7 +848,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                         <div className="text-[10px] text-slate-500">{med.unit}</div>
                       </td>
 
-                      {/* Price / MRP Column */}
+                      {/* MRP Column (MRP Only) */}
                       <td className="py-3 px-3 text-right">
                         <div className="font-mono font-bold text-slate-900 text-sm">
                           {pricing.mrpRange ? (
@@ -665,16 +861,6 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                             <span className="text-slate-400 italic text-[11px]">Not set</span>
                           )}
                         </div>
-                        {pricing.saleRate > 0 && pricing.saleRate !== pricing.primaryMrp && (
-                          <div className="text-[10px] text-emerald-700 font-bold font-mono">
-                            Sale: {formatCurrency(pricing.saleRate, symbol)}
-                          </div>
-                        )}
-                        {pricing.purchaseRate > 0 && (
-                          <div className="text-[10px] text-slate-400 font-mono">
-                            Cost: {formatCurrency(pricing.purchaseRate, symbol)}
-                          </div>
-                        )}
                       </td>
 
                       {/* Batches Pill List with Price */}
@@ -780,7 +966,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         </div>
       </div>
 
-      {/* ================= ADD / EDIT MEDICINE DIALOG ================= */}
+      {/* ================= ADD / EDIT PRODUCT DIALOG ================= */}
       <dialog
         ref={medDialogRef}
         aria-labelledby="med-dialog-title"
@@ -789,7 +975,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
       >
         <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
           <h2 id="med-dialog-title" className="text-base font-bold">
-            {editingMedId ? 'Edit Medicine Master' : 'Add New Medicine to Master'}
+            {editingMedId ? `Edit ${terms.itemName}` : `Add New ${terms.itemName}`}
           </h2>
           <button onClick={closeMedModal} className="text-slate-400 hover:text-white p-1 rounded-lg">
             <X className="w-5 h-5" />
@@ -799,39 +985,76 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
         <form onSubmit={handleSaveMedicine} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Brand / Product Name *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isPharmacy ? 'Brand / Medicine Name *' : `${terms.itemName} Name *`}
+              </label>
               <input
                 type="text"
                 required
                 autoFocus
                 value={medForm.name || ''}
                 onChange={(e) => setMedForm({ ...medForm, name: e.target.value })}
-                placeholder="e.g. Dolo 650 Tablet"
+                placeholder={terms.namePlaceholder}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Generic Name / Composition *</label>
-              <input
-                type="text"
-                required
-                value={medForm.genericName || ''}
-                onChange={(e) => setMedForm({ ...medForm, genericName: e.target.value })}
-                placeholder="e.g. Paracetamol (650mg)"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+            {isPharmacy ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Generic Name / Composition *</label>
+                <input
+                  type="text"
+                  required
+                  value={medForm.genericName || ''}
+                  onChange={(e) => setMedForm({ ...medForm, genericName: e.target.value })}
+                  placeholder="e.g. Paracetamol (650mg)"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            ) : isTech ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Model Number / Code</label>
+                <input
+                  type="text"
+                  value={medForm.modelNumber || ''}
+                  onChange={(e) => setMedForm({ ...medForm, modelNumber: e.target.value })}
+                  placeholder="e.g. CPH2613 / A2906"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            ) : isFashion ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Size / Fit</label>
+                <input
+                  type="text"
+                  value={medForm.size || ''}
+                  onChange={(e) => setMedForm({ ...medForm, size: e.target.value })}
+                  placeholder="e.g. M, L, XL, 32, Slim Fit"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Net Qty / Pack Weight</label>
+                <input
+                  type="text"
+                  value={medForm.genericName === 'Standard Product' ? '' : medForm.genericName || ''}
+                  onChange={(e) => setMedForm({ ...medForm, genericName: e.target.value || 'Standard Product' })}
+                  placeholder="e.g. 5kg Pack / 1 Litre Bottle"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Manufacturer</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">{terms.brandLabel}</label>
               <input
                 type="text"
                 value={medForm.manufacturer || ''}
-                onChange={(e) => setMedForm({ ...medForm, manufacturer: e.target.value })}
-                placeholder="e.g. Cipla, Sun Pharma"
+                onChange={(e) => setMedForm({ ...medForm, manufacturer: e.target.value, brand: e.target.value })}
+                placeholder={terms.brandPh}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
               />
             </div>
@@ -843,7 +1066,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 onChange={(e) => setMedForm({ ...medForm, category: e.target.value as MedicineCategory })}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
               >
-                {CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -851,44 +1074,101 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Drug Schedule</label>
-              <select
-                value={medForm.schedule}
-                onChange={(e) => setMedForm({ ...medForm, schedule: e.target.value as ScheduleType })}
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
-              >
-                {SCHEDULES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {isPharmacy ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Drug Schedule</label>
+                <select
+                  value={medForm.schedule}
+                  onChange={(e) => setMedForm({ ...medForm, schedule: e.target.value as ScheduleType })}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white"
+                >
+                  {SCHEDULES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : isTech ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Warranty (Months)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={medForm.warrantyMonths || 12}
+                  onChange={(e) => setMedForm({ ...medForm, warrantyMonths: parseInt(e.target.value, 10) || 0 })}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                  placeholder="12"
+                />
+              </div>
+            ) : isFashion ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Color / Shade</label>
+                <input
+                  type="text"
+                  value={medForm.color || ''}
+                  onChange={(e) => setMedForm({ ...medForm, color: e.target.value })}
+                  placeholder="e.g. Navy Blue, Jet Black"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Barcode / SKU</label>
+                <input
+                  type="text"
+                  value={medForm.barcode || ''}
+                  onChange={(e) => setMedForm({ ...medForm, barcode: e.target.value })}
+                  placeholder="Auto-generated if empty"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                />
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Rack / Storage Location</label>
-              <input
-                type="text"
-                value={medForm.rack || ''}
-                onChange={(e) => setMedForm({ ...medForm, rack: e.target.value })}
-                placeholder="e.g. Rack A"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-              />
-            </div>
+            {currentWorkspace?.features.enableRacksAndShelves !== false ? (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Rack / Storage Location</label>
+                  <input
+                    type="text"
+                    value={medForm.rack || ''}
+                    onChange={(e) => setMedForm({ ...medForm, rack: e.target.value })}
+                    placeholder={isPharmacy ? 'e.g. Rack A' : 'e.g. Section 1'}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Shelf / Bin</label>
-              <input
-                type="text"
-                value={medForm.shelf || ''}
-                onChange={(e) => setMedForm({ ...medForm, shelf: e.target.value })}
-                placeholder="e.g. Shelf 1"
-                className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
-              />
-            </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Shelf / Bin</label>
+                  <input
+                    type="text"
+                    value={medForm.shelf || ''}
+                    onChange={(e) => setMedForm({ ...medForm, shelf: e.target.value })}
+                    placeholder={isPharmacy ? 'e.g. Shelf 1' : 'e.g. Aisle 2'}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  {isTech ? 'Serial Number / IMEI (Optional)' : isFashion ? 'Fabric / Material' : 'Barcode / SKU'}
+                </label>
+                <input
+                  type="text"
+                  value={isTech ? medForm.serialNumber || '' : isFashion ? medForm.genericName || '' : medForm.barcode || ''}
+                  onChange={(e) => {
+                    if (isTech) setMedForm({ ...medForm, serialNumber: e.target.value });
+                    else if (isFashion) setMedForm({ ...medForm, genericName: e.target.value });
+                    else setMedForm({ ...medForm, barcode: e.target.value });
+                  }}
+                  placeholder={isTech ? 'e.g. IMEI / Serial No.' : isFashion ? 'e.g. 100% Cotton, Denim' : 'Scan or leave blank'}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">HSN Code</label>
@@ -896,7 +1176,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 type="text"
                 value={medForm.hsnCode || ''}
                 onChange={(e) => setMedForm({ ...medForm, hsnCode: e.target.value })}
-                placeholder="30049099"
+                placeholder={isPharmacy ? '30049099' : isGrocery ? '10063020' : isTech ? '85171300' : '62052000'}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono"
               />
             </div>
@@ -909,9 +1189,10 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white font-mono"
               >
                 <option value={0}>0% (Exempted)</option>
-                <option value={5}>5%</option>
-                <option value={12}>12% (Standard Pharma)</option>
-                <option value={18}>18% (Devices/Sanitizers)</option>
+                <option value={5}>5% (Essential Food / FMCG)</option>
+                <option value={12}>12% (Standard Pharma / Garments)</option>
+                <option value={18}>18% (Electronics / Retail)</option>
+                <option value={28}>28% (Luxury / Hardware)</option>
               </select>
             </div>
           </div>
@@ -923,7 +1204,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 type="text"
                 value={medForm.unit || ''}
                 onChange={(e) => setMedForm({ ...medForm, unit: e.target.value })}
-                placeholder="Strip, Bottle, Tube"
+                placeholder={isPharmacy ? 'Strip, Bottle, Tube' : isGrocery ? 'Kg, Pkt, Litre' : 'Piece, Box'}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
               />
             </div>
@@ -933,7 +1214,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
               <input
                 type="number"
                 min="1"
-                value={medForm.packSize || 10}
+                value={medForm.packSize || 1}
                 onChange={(e) => setMedForm({ ...medForm, packSize: parseInt(e.target.value, 10) || 1 })}
                 className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
               />
@@ -951,11 +1232,11 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             </div>
           </div>
 
-          {/* Medicine Pricing & Rates Section */}
+          {/* Pricing & Rates Section */}
           <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold text-emerald-950 uppercase tracking-wider">
               <IndianRupee className="w-4 h-4 text-emerald-700" />
-              <span>{t('inv.pricing_section', 'Medicine Pricing & Rates')}</span>
+              <span>{isPharmacy ? t('inv.pricing_section', 'Medicine Pricing & Rates') : `${terms.itemName} Pricing & Rates`}</span>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -1022,7 +1303,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                     className="w-full text-xs pl-7 pr-3 py-2 border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-emerald-500 bg-white"
                   />
                 </div>
-                <span className="text-[10px] text-slate-500">Cost from distributor</span>
+                <span className="text-[10px] text-slate-500">Cost from supplier</span>
               </div>
             </div>
 
@@ -1039,20 +1320,20 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                     onChange={(e) => setInitialStockQty(parseInt(e.target.value, 10) || 0)}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-bold bg-white"
                   />
-                  <span className="text-[10px] text-slate-500">Creates first batch automatically</span>
+                  <span className="text-[10px] text-slate-500">Ready immediately in POS counter</span>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {t('inv.initial_batch', 'Initial Batch Number')}
+                    {isPharmacy ? t('inv.initial_batch', 'Initial Batch Number') : 'Batch / Lot / SKU Number'}
                   </label>
                   <input
                     type="text"
                     value={initialBatchNo}
                     onChange={(e) => setInitialBatchNo(e.target.value.toUpperCase())}
-                    placeholder="e.g. B2601"
+                    placeholder={isPharmacy ? 'e.g. B2601' : 'e.g. LOT-01 / DEFAULT'}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg font-mono font-bold uppercase bg-white"
                   />
-                  <span className="text-[10px] text-slate-500">Batch identifier on strip</span>
+                  <span className="text-[10px] text-slate-500">Auto-created for counter billing</span>
                 </div>
               </div>
             )}
@@ -1060,7 +1341,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
             {/* Barcode / EAN-13 Generator */}
             <div className="pt-2.5 border-t border-emerald-200/70">
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Medicine Barcode (EAN-13 / Code-128)
+                {isPharmacy ? 'Medicine Barcode (EAN-13 / Code-128)' : 'Product Barcode (EAN-13 / Code-128)'}
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -1084,7 +1365,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
                 </button>
               </div>
               <span className="text-[10px] text-slate-500">
-                Scanned by laser/camera scanner in POS billing to instantly auto-add this medicine
+                Scanned by laser/camera scanner in POS billing to instantly auto-add this item
               </span>
             </div>
           </div>
@@ -1101,7 +1382,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ settings, onRefr
               type="submit"
               className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-md"
             >
-              Save Medicine
+              {editingMedId ? 'Save Changes' : `Add ${terms.itemName} to Master`}
             </button>
           </div>
         </form>

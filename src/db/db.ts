@@ -10,6 +10,7 @@ import {
   CustomerPayment,
   StoreSettings,
   HeldBill,
+  Workspace,
 } from '../types';
 import {
   initialMedicines,
@@ -18,6 +19,10 @@ import {
   initialDoctors,
   initialSuppliers,
   initialStoreSettings,
+  initialWorkspaces,
+  initialMultiIndustryProducts,
+  initialMultiIndustryBatches,
+  initialMultiIndustrySuppliers,
 } from './seedData';
 
 export class PharmaDatabase extends Dexie {
@@ -31,6 +36,7 @@ export class PharmaDatabase extends Dexie {
   customerPayments!: Table<CustomerPayment, string>;
   settings!: Table<StoreSettings, number>;
   heldBills!: Table<HeldBill, string>;
+  workspaces!: Table<Workspace, string>;
 
   constructor() {
     super('PharmaCareDB');
@@ -51,6 +57,19 @@ export class PharmaDatabase extends Dexie {
       medicines: 'id, name, genericName, category, rack, shelf, hsnCode, schedule, barcode',
       batches: 'id, medicineId, batchNumber, expiryDate, stockQty, barcode',
     });
+
+    this.version(3).stores({
+      workspaces: 'id, slug, industry',
+      medicines: 'id, workspaceId, name, genericName, category, rack, shelf, hsnCode, schedule, barcode',
+      batches: 'id, workspaceId, medicineId, batchNumber, expiryDate, stockQty, barcode',
+      customers: 'id, workspaceId, name, phone, outstandingBalance',
+      doctors: 'id, workspaceId, name, regNo',
+      suppliers: 'id, workspaceId, name, phone, gstin',
+      invoices: 'id, workspaceId, invoiceNo, date, customerId, paymentMode, grandTotal, createdYearMonth',
+      purchases: 'id, workspaceId, purchaseNo, supplierId, date',
+      customerPayments: 'id, workspaceId, customerId, date',
+      heldBills: 'id, workspaceId, customerPhone',
+    });
   }
 }
 
@@ -58,14 +77,72 @@ export const db = new PharmaDatabase();
 
 // Initialize sample data on first run
 export async function initializeDatabase() {
+  // 1. Initialize Workspaces
+  const workspaceCount = await db.workspaces.count();
+  if (workspaceCount === 0) {
+    await db.workspaces.bulkAdd(initialWorkspaces);
+  }
+
+  // 2. Initialize Pharmacy Base Medicines with workspaceId
   const medicineCount = await db.medicines.count();
   if (medicineCount === 0) {
-    await db.medicines.bulkAdd(initialMedicines);
-    await db.batches.bulkAdd(initialBatches);
-    await db.customers.bulkAdd(initialCustomers);
-    await db.doctors.bulkAdd(initialDoctors);
-    await db.suppliers.bulkAdd(initialSuppliers);
-    await db.settings.put({ ...initialStoreSettings, id: 1 });
+    const pharmaMeds = initialMedicines.map((m) => ({ ...m, workspaceId: 'ws_healthplus' }));
+    const pharmaBatches = initialBatches.map((b) => ({ ...b, workspaceId: 'ws_healthplus' }));
+    const pharmaCusts = initialCustomers.map((c) => ({ ...c, workspaceId: 'ws_healthplus' }));
+    const pharmaDocs = initialDoctors.map((d) => ({ ...d, workspaceId: 'ws_healthplus' }));
+    const pharmaSups = initialSuppliers.map((s) => ({ ...s, workspaceId: 'ws_healthplus' }));
+
+    await db.medicines.bulkAdd(pharmaMeds);
+    await db.batches.bulkAdd(pharmaBatches);
+    await db.customers.bulkAdd(pharmaCusts);
+    await db.doctors.bulkAdd(pharmaDocs);
+    await db.suppliers.bulkAdd([...pharmaSups, ...initialMultiIndustrySuppliers]);
+    await db.settings.put({ ...initialStoreSettings, id: 1, workspaceId: 'ws_healthplus' });
+
+    // Also populate multi-industry products for demonstration
+    await db.medicines.bulkAdd(initialMultiIndustryProducts);
+    await db.batches.bulkAdd(initialMultiIndustryBatches);
+    await db.suppliers.bulkAdd(initialMultiIndustrySuppliers);
+  } else {
+    // Migration: ensure any medicines or batches without workspaceId get 'ws_healthplus'
+    await db.medicines.toCollection().modify((m) => {
+      if (!m.workspaceId) m.workspaceId = 'ws_healthplus';
+    });
+    await db.batches.toCollection().modify((b) => {
+      if (!b.workspaceId) b.workspaceId = 'ws_healthplus';
+    });
+    await db.customers.toCollection().modify((c) => {
+      if (!c.workspaceId) c.workspaceId = 'ws_healthplus';
+    });
+    await db.suppliers.toCollection().modify((s) => {
+      if (!s.workspaceId) s.workspaceId = 'ws_healthplus';
+    });
+    await db.invoices.toCollection().modify((inv) => {
+      if (!inv.workspaceId) inv.workspaceId = 'ws_healthplus';
+    });
+
+    // Ensure all existing workspaces have their industry color theme assigned
+    await db.workspaces.toCollection().modify((ws) => {
+      if (!ws.theme) {
+        if (ws.industry === 'grocery') ws.theme = 'amber';
+        else if (ws.industry === 'electronics') ws.theme = 'blue';
+        else if (ws.industry === 'clothing') ws.theme = 'purple';
+        else ws.theme = 'emerald';
+      }
+    });
+
+    // Check if multi-industry products exist
+    const hasFreshmart = await db.medicines.where('workspaceId').equals('ws_freshmart').first();
+    if (!hasFreshmart) {
+      await db.medicines.bulkAdd(initialMultiIndustryProducts);
+      await db.batches.bulkAdd(initialMultiIndustryBatches);
+    }
+
+    // Check if multi-industry suppliers exist
+    const hasFreshmartSuppliers = await db.suppliers.where('workspaceId').equals('ws_freshmart').first();
+    if (!hasFreshmartSuppliers) {
+      await db.suppliers.bulkAdd(initialMultiIndustrySuppliers);
+    }
   }
 }
 
@@ -73,7 +150,8 @@ export async function initializeDatabase() {
 export async function exportDatabaseToJson(): Promise<string> {
   const data = {
     exportDate: new Date().toISOString(),
-    version: 1,
+    version: 3,
+    workspaces: await db.workspaces.toArray(),
     storeSettings: await db.settings.toArray(),
     medicines: await db.medicines.toArray(),
     batches: await db.batches.toArray(),
@@ -92,6 +170,7 @@ export async function restoreDatabaseFromJson(jsonContent: string): Promise<bool
   try {
     const data = JSON.parse(jsonContent);
     await db.transaction('rw', [
+      db.workspaces,
       db.settings,
       db.medicines,
       db.batches,
@@ -103,6 +182,7 @@ export async function restoreDatabaseFromJson(jsonContent: string): Promise<bool
       db.customerPayments,
       db.heldBills,
     ], async () => {
+      await db.workspaces.clear();
       await db.settings.clear();
       await db.medicines.clear();
       await db.batches.clear();
@@ -114,6 +194,7 @@ export async function restoreDatabaseFromJson(jsonContent: string): Promise<bool
       await db.customerPayments.clear();
       await db.heldBills.clear();
 
+      if (data.workspaces?.length) await db.workspaces.bulkAdd(data.workspaces);
       if (data.storeSettings?.length) await db.settings.bulkAdd(data.storeSettings);
       if (data.medicines?.length) await db.medicines.bulkAdd(data.medicines);
       if (data.batches?.length) await db.batches.bulkAdd(data.batches);
@@ -134,6 +215,7 @@ export async function restoreDatabaseFromJson(jsonContent: string): Promise<bool
 // Reset database to initial sample data
 export async function resetDatabaseToDefault() {
   await db.transaction('rw', [
+    db.workspaces,
     db.settings,
     db.medicines,
     db.batches,
@@ -145,6 +227,7 @@ export async function resetDatabaseToDefault() {
     db.customerPayments,
     db.heldBills,
   ], async () => {
+    await db.workspaces.clear();
     await db.settings.clear();
     await db.medicines.clear();
     await db.batches.clear();
@@ -156,12 +239,18 @@ export async function resetDatabaseToDefault() {
     await db.customerPayments.clear();
     await db.heldBills.clear();
 
-    await db.medicines.bulkAdd(initialMedicines);
-    await db.batches.bulkAdd(initialBatches);
-    await db.customers.bulkAdd(initialCustomers);
-    await db.doctors.bulkAdd(initialDoctors);
-    await db.suppliers.bulkAdd(initialSuppliers);
-    await db.settings.put({ ...initialStoreSettings, id: 1 });
+    await db.workspaces.bulkAdd(initialWorkspaces);
+    const pharmaMeds = initialMedicines.map((m) => ({ ...m, workspaceId: 'ws_healthplus' }));
+    const pharmaBatches = initialBatches.map((b) => ({ ...b, workspaceId: 'ws_healthplus' }));
+    const pharmaCusts = initialCustomers.map((c) => ({ ...c, workspaceId: 'ws_healthplus' }));
+    const pharmaDocs = initialDoctors.map((d) => ({ ...d, workspaceId: 'ws_healthplus' }));
+    const pharmaSups = initialSuppliers.map((s) => ({ ...s, workspaceId: 'ws_healthplus' }));
+
+    await db.medicines.bulkAdd([...pharmaMeds, ...initialMultiIndustryProducts]);
+    await db.batches.bulkAdd([...pharmaBatches, ...initialMultiIndustryBatches]);
+    await db.customers.bulkAdd(pharmaCusts);
+    await db.doctors.bulkAdd(pharmaDocs);
+    await db.suppliers.bulkAdd([...pharmaSups, ...initialMultiIndustrySuppliers]);
+    await db.settings.put({ ...initialStoreSettings, id: 1, workspaceId: 'ws_healthplus' });
   });
 }
-

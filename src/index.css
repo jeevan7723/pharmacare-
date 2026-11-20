@@ -34,3 +34,241 @@
   scrollbar-width: none;
 }
 
+/* =========================================================================
+   DYNAMIC MULTI-TENANT COMPANY COLOR THEMES
+   ========================================================================= */
+
+/* Default Emerald Theme CSS Variables */
+:root, [data-theme="emerald"] {
+  --theme-brand-50: #ecfdf5;
+  --theme-brand-100: #d1fae5;
+  --theme-brand-200: #a7f3d0;
+  --theme-brand-400: #34d399;
+  --theme-brand-500: #10b981;
+  --theme-brand-600: #059669;
+  --theme-brand-700: #047857;
+  --theme-brand-800: #065f46;
+  --theme-brand-900: #064e3b;
+}
+
+/* 1. Amber / Orange Theme (FreshMart Supermarket & Organics) */
+[data-theme="amber"] {
+  --theme-brand-50: #fffbeb;
+  --theme-brand-100: #fef3c7;
+  --theme-brand-200: #fde68a;
+  --theme-brand-400: #fbbf24;
+  --theme-brand-500: #f59e0b;
+  --theme-brand-600: #d97706;
+  --theme-brand-700: #b45309;
+  --theme-brand-800: #92400e;
+  --theme-brand-900: #78350f;
+}
+[data-theme="amber"] .bg-emerald-50,
+[data-theme="amber"] .hover\:bg-emerald-50\/50:hover,
+[data-theme="amber"] .hover\:bg-emerald-50:hover { background-color: #fffbeb !important; }
+[data-theme="amber"] .bg-emerald-100 { background-color: #fef3c7 !important; }
+[data-theme="amber"] .bg-emerald-200 { background-color: #fde68a !important; }
+[data-theme="amber"] .bg-emerald-500 { background-color: #f59e0b !important; }
+[data-theme="amber"] .bg-emerald-600,
+[data-theme="amber"] .hover\:bg-emerald-600:hover { background-color: #d97706 !important; }
+[data-theme="amber"] .bg-emerald-700,
+[data-theme="amber"] .hover\:bg-emerald-700:hover { background-color: #b45309 !important; }
+[data-theme="amber"] .bg-emerald-800 { background-color: #92400e !important; }
+[data-theme="amber"] .text-emerald-100 { color: #fef3c7 !important; }
+[data-theme="amber"] .text-emerald-200 { color: #fde68a !important; }
+[data-theme="amber"] .text-emerald-300 { color: #fcd34d !important; }
+[data-theme="amber"] .text-emerald-400,
+[data-theme="amber"] .group:hover .group-hover\:text-emerald-400 { color: #fbbf24 !important; }
+[data-theme="amber"] .text-emerald-500 { color: #f59e0b !important; }
+[data-theme="amber"] .text-emerald-600,
+[data-theme="amber"] .hover\:text-emerald-600:hover { color: #d97706 !important; }
+[data-theme="amber"] .text-emerald-700 { color: #b45309 !important; }
+[data-theme="amber"] .text-emerald-800 { color: #92400e !important; }
+[data-theme="amber"] .text-emerald-950 { color: #451a03 !important; }
+[data-theme="amber"] .border-emerald-200 { border-color: #fde68a !important; }
+[data-theme="amber"] .border-emerald-300 { border-color: #fcd34d !important; }
+[data-theme="amber"] .border-emerald-400 { border-color: #fbbf24 !important; }
+[data-theme="amber"] .border-emerald-500,
+[data-theme="amber"] .hover\:border-emerald-500:hover { border-color: #f59e0b !important; }
+[data-theme="amber"] .border-emerald-600 { border-color: #d97706 !important; }
+[data-theme="amber"] .focus\:ring-emerald-500:focus,
+[data-theme="amber"] .ring-emerald-500 { --tw-ring-color: #f59e0b !important; border-color: #f59e0b !important; }
+[data-theme="amber"] .shadow-emerald-600\/20 { box-shadow: 0 10px 15px -3px rgba(217, 119, 6, 0.25), 0 4px 6px -4px rgba(217, 119, 6, 0.2) !important; }
+
+/* 2. Blue / Indigo Theme (TechZone Electronics & Mobiles) */
+[data-theme="blue"] {
+  --theme-brand-50: #eff6ff;
+  --theme-brand-100: #dbeafe;
+  --theme-brand-200: #bfdbfe;
+  --theme-brand-400: #60a5fa;
+  --theme-brand-500: #3b82f6;
+  --theme-brand-600: #2563eb;
+  --theme-brand-700: #1d4ed8;
+  --theme-brand-800: #1e40af;
+  --theme-brand-900: #1e3a8a;
+}
+[data-theme="blue"] .bg-emerald-50,
+[data-theme="blue"] .hover\:bg-emerald-50\/50:hover,
+[data-theme="blue"] .hover\:bg-emerald-50:hover { background-color: #eff6ff !important; }
+[data-theme="blue"] .bg-emerald-100 { background-color: #dbeafe !important; }
+[data-theme="blue"] .bg-emerald-200 { background-color: #bfdbfe !important; }
+[data-theme="blue"] .bg-emerald-500 { background-color: #3b82f6 !important; }
+[data-theme="blue"] .bg-emerald-600,
+[data-theme="blue"] .hover\:bg-emerald-600:hover { background-color: #2563eb !important; }
+[data-theme="blue"] .bg-emerald-700,
+[data-theme="blue"] .hover\:bg-emerald-700:hover { background-color: #1d4ed8 !important; }
+[data-theme="blue"] .bg-emerald-800 { background-color: #1e40af !important; }
+[data-theme="blue"] .text-emerald-100 { color: #dbeafe !important; }
+[data-theme="blue"] .text-emerald-200 { color: #bfdbfe !important; }
+[data-theme="blue"] .text-emerald-300 { color: #93c5fd !important; }
+[data-theme="blue"] .text-emerald-400,
+[data-theme="blue"] .group:hover .group-hover\:text-emerald-400 { color: #60a5fa !important; }
+[data-theme="blue"] .text-emerald-500 { color: #3b82f6 !important; }
+[data-theme="blue"] .text-emerald-600,
+[data-theme="blue"] .hover\:text-emerald-600:hover { color: #2563eb !important; }
+[data-theme="blue"] .text-emerald-700 { color: #1d4ed8 !important; }
+[data-theme="blue"] .text-emerald-800 { color: #1e40af !important; }
+[data-theme="blue"] .text-emerald-950 { color: #172554 !important; }
+[data-theme="blue"] .border-emerald-200 { border-color: #bfdbfe !important; }
+[data-theme="blue"] .border-emerald-300 { border-color: #93c5fd !important; }
+[data-theme="blue"] .border-emerald-400 { border-color: #60a5fa !important; }
+[data-theme="blue"] .border-emerald-500,
+[data-theme="blue"] .hover\:border-emerald-500:hover { border-color: #3b82f6 !important; }
+[data-theme="blue"] .border-emerald-600 { border-color: #2563eb !important; }
+[data-theme="blue"] .focus\:ring-emerald-500:focus,
+[data-theme="blue"] .ring-emerald-500 { --tw-ring-color: #2563eb !important; border-color: #2563eb !important; }
+[data-theme="blue"] .shadow-emerald-600\/20 { box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.25), 0 4px 6px -4px rgba(37, 99, 235, 0.2) !important; }
+
+/* 3. Purple / Violet Theme (Vogue Retail Fashion & Apparel) */
+[data-theme="purple"] {
+  --theme-brand-50: #faf5ff;
+  --theme-brand-100: #f3e8ff;
+  --theme-brand-200: #e9d5ff;
+  --theme-brand-400: #c084fc;
+  --theme-brand-500: #a855f7;
+  --theme-brand-600: #9333ea;
+  --theme-brand-700: #7e22ce;
+  --theme-brand-800: #6b21a8;
+  --theme-brand-900: #581c87;
+}
+[data-theme="purple"] .bg-emerald-50,
+[data-theme="purple"] .hover\:bg-emerald-50\/50:hover,
+[data-theme="purple"] .hover\:bg-emerald-50:hover { background-color: #faf5ff !important; }
+[data-theme="purple"] .bg-emerald-100 { background-color: #f3e8ff !important; }
+[data-theme="purple"] .bg-emerald-200 { background-color: #e9d5ff !important; }
+[data-theme="purple"] .bg-emerald-500 { background-color: #a855f7 !important; }
+[data-theme="purple"] .bg-emerald-600,
+[data-theme="purple"] .hover\:bg-emerald-600:hover { background-color: #9333ea !important; }
+[data-theme="purple"] .bg-emerald-700,
+[data-theme="purple"] .hover\:bg-emerald-700:hover { background-color: #7e22ce !important; }
+[data-theme="purple"] .bg-emerald-800 { background-color: #6b21a8 !important; }
+[data-theme="purple"] .text-emerald-100 { color: #f3e8ff !important; }
+[data-theme="purple"] .text-emerald-200 { color: #e9d5ff !important; }
+[data-theme="purple"] .text-emerald-300 { color: #d8b4fe !important; }
+[data-theme="purple"] .text-emerald-400,
+[data-theme="purple"] .group:hover .group-hover\:text-emerald-400 { color: #c084fc !important; }
+[data-theme="purple"] .text-emerald-500 { color: #a855f7 !important; }
+[data-theme="purple"] .text-emerald-600,
+[data-theme="purple"] .hover\:text-emerald-600:hover { color: #9333ea !important; }
+[data-theme="purple"] .text-emerald-700 { color: #7e22ce !important; }
+[data-theme="purple"] .text-emerald-800 { color: #6b21a8 !important; }
+[data-theme="purple"] .text-emerald-950 { color: #3b0764 !important; }
+[data-theme="purple"] .border-emerald-200 { border-color: #e9d5ff !important; }
+[data-theme="purple"] .border-emerald-300 { border-color: #d8b4fe !important; }
+[data-theme="purple"] .border-emerald-400 { border-color: #c084fc !important; }
+[data-theme="purple"] .border-emerald-500,
+[data-theme="purple"] .hover\:border-emerald-500:hover { border-color: #a855f7 !important; }
+[data-theme="purple"] .border-emerald-600 { border-color: #9333ea !important; }
+[data-theme="purple"] .focus\:ring-emerald-500:focus,
+[data-theme="purple"] .ring-emerald-500 { --tw-ring-color: #9333ea !important; border-color: #9333ea !important; }
+[data-theme="purple"] .shadow-emerald-600\/20 { box-shadow: 0 10px 15px -3px rgba(147, 51, 234, 0.25), 0 4px 6px -4px rgba(147, 51, 234, 0.2) !important; }
+
+/* 4. Rose / Ruby Theme (Beauty, Cosmetics & General Retail) */
+[data-theme="rose"] {
+  --theme-brand-50: #fff1f2;
+  --theme-brand-100: #ffe4e6;
+  --theme-brand-200: #fecdd3;
+  --theme-brand-400: #fb7185;
+  --theme-brand-500: #f43f5e;
+  --theme-brand-600: #e11d48;
+  --theme-brand-700: #be123c;
+  --theme-brand-800: #9f1239;
+  --theme-brand-900: #881337;
+}
+[data-theme="rose"] .bg-emerald-50,
+[data-theme="rose"] .hover\:bg-emerald-50\/50:hover,
+[data-theme="rose"] .hover\:bg-emerald-50:hover { background-color: #fff1f2 !important; }
+[data-theme="rose"] .bg-emerald-100 { background-color: #ffe4e6 !important; }
+[data-theme="rose"] .bg-emerald-200 { background-color: #fecdd3 !important; }
+[data-theme="rose"] .bg-emerald-500 { background-color: #f43f5e !important; }
+[data-theme="rose"] .bg-emerald-600,
+[data-theme="rose"] .hover\:bg-emerald-600:hover { background-color: #e11d48 !important; }
+[data-theme="rose"] .bg-emerald-700,
+[data-theme="rose"] .hover\:bg-emerald-700:hover { background-color: #be123c !important; }
+[data-theme="rose"] .bg-emerald-800 { background-color: #9f1239 !important; }
+[data-theme="rose"] .text-emerald-100 { color: #ffe4e6 !important; }
+[data-theme="rose"] .text-emerald-200 { color: #fecdd3 !important; }
+[data-theme="rose"] .text-emerald-300 { color: #fda4af !important; }
+[data-theme="rose"] .text-emerald-400,
+[data-theme="rose"] .group:hover .group-hover\:text-emerald-400 { color: #fb7185 !important; }
+[data-theme="rose"] .text-emerald-500 { color: #f43f5e !important; }
+[data-theme="rose"] .text-emerald-600,
+[data-theme="rose"] .hover\:text-emerald-600:hover { color: #e11d48 !important; }
+[data-theme="rose"] .text-emerald-700 { color: #be123c !important; }
+[data-theme="rose"] .text-emerald-800 { color: #9f1239 !important; }
+[data-theme="rose"] .text-emerald-950 { color: #4c0519 !important; }
+[data-theme="rose"] .border-emerald-200 { border-color: #fecdd3 !important; }
+[data-theme="rose"] .border-emerald-300 { border-color: #fda4af !important; }
+[data-theme="rose"] .border-emerald-400 { border-color: #fb7185 !important; }
+[data-theme="rose"] .border-emerald-500,
+[data-theme="rose"] .hover\:border-emerald-500:hover { border-color: #f43f5e !important; }
+[data-theme="rose"] .border-emerald-600 { border-color: #e11d48 !important; }
+[data-theme="rose"] .focus\:ring-emerald-500:focus,
+[data-theme="rose"] .ring-emerald-500 { --tw-ring-color: #e11d48 !important; border-color: #e11d48 !important; }
+[data-theme="rose"] .shadow-emerald-600\/20 { box-shadow: 0 10px 15px -3px rgba(225, 29, 72, 0.25), 0 4px 6px -4px rgba(225, 29, 72, 0.2) !important; }
+
+/* 5. Cyan / Teal Theme (Modern Tech / Digital Systems) */
+[data-theme="cyan"] {
+  --theme-brand-50: #ecfeff;
+  --theme-brand-100: #cffafe;
+  --theme-brand-200: #a5f3fc;
+  --theme-brand-400: #22d3ee;
+  --theme-brand-500: #06b6d4;
+  --theme-brand-600: #0891b2;
+  --theme-brand-700: #0e7490;
+  --theme-brand-800: #155e75;
+  --theme-brand-900: #164e63;
+}
+[data-theme="cyan"] .bg-emerald-50,
+[data-theme="cyan"] .hover\:bg-emerald-50\/50:hover,
+[data-theme="cyan"] .hover\:bg-emerald-50:hover { background-color: #ecfeff !important; }
+[data-theme="cyan"] .bg-emerald-100 { background-color: #cffafe !important; }
+[data-theme="cyan"] .bg-emerald-200 { background-color: #a5f3fc !important; }
+[data-theme="cyan"] .bg-emerald-500 { background-color: #06b6d4 !important; }
+[data-theme="cyan"] .bg-emerald-600,
+[data-theme="cyan"] .hover\:bg-emerald-600:hover { background-color: #0891b2 !important; }
+[data-theme="cyan"] .bg-emerald-700,
+[data-theme="cyan"] .hover\:bg-emerald-700:hover { background-color: #0e7490 !important; }
+[data-theme="cyan"] .bg-emerald-800 { background-color: #155e75 !important; }
+[data-theme="cyan"] .text-emerald-100 { color: #cffafe !important; }
+[data-theme="cyan"] .text-emerald-200 { color: #a5f3fc !important; }
+[data-theme="cyan"] .text-emerald-300 { color: #67e8f9 !important; }
+[data-theme="cyan"] .text-emerald-400,
+[data-theme="cyan"] .group:hover .group-hover\:text-emerald-400 { color: #22d3ee !important; }
+[data-theme="cyan"] .text-emerald-500 { color: #06b6d4 !important; }
+[data-theme="cyan"] .text-emerald-600,
+[data-theme="cyan"] .hover\:text-emerald-600:hover { color: #0891b2 !important; }
+[data-theme="cyan"] .text-emerald-700 { color: #0e7490 !important; }
+[data-theme="cyan"] .text-emerald-800 { color: #155e75 !important; }
+[data-theme="cyan"] .text-emerald-950 { color: #083344 !important; }
+[data-theme="cyan"] .border-emerald-200 { border-color: #a5f3fc !important; }
+[data-theme="cyan"] .border-emerald-300 { border-color: #67e8f9 !important; }
+[data-theme="cyan"] .border-emerald-400 { border-color: #22d3ee !important; }
+[data-theme="cyan"] .border-emerald-500,
+[data-theme="cyan"] .hover\:border-emerald-500:hover { border-color: #06b6d4 !important; }
+[data-theme="cyan"] .border-emerald-600 { border-color: #0891b2 !important; }
+[data-theme="cyan"] .focus\:ring-emerald-500:focus,
+[data-theme="cyan"] .ring-emerald-500 { --tw-ring-color: #0891b2 !important; border-color: #0891b2 !important; }
+[data-theme="cyan"] .shadow-emerald-600\/20 { box-shadow: 0 10px 15px -3px rgba(8, 145, 178, 0.25), 0 4px 6px -4px rgba(8, 145, 178, 0.2) !important; }
+
+

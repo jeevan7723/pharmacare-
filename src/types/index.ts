@@ -1,3 +1,46 @@
+export type IndustryType = 'pharmacy' | 'grocery' | 'electronics' | 'clothing' | 'general';
+
+export type CompanyTheme = 'emerald' | 'amber' | 'blue' | 'purple' | 'rose' | 'cyan';
+
+export type LicenseStatus = 'active' | 'trial' | 'suspended' | 'expired';
+
+export type PlanTier = 'starter' | 'pro' | 'enterprise';
+
+export interface WorkspaceFeatures {
+  enableBatchAndExpiry: boolean;     // True for Pharmacy (FEFO, expiry alerts)
+  enableDoctorPrescription: boolean; // True for Pharmacy / Clinics
+  enableCustomerKhata: boolean;      // True for neighborhood retail credit
+  enableBarcodeScanner: boolean;     // High-speed barcode/SKU checkout
+  enableSerialTracking: boolean;     // Serial/IMEI tracking for Electronics
+  enableRacksAndShelves: boolean;    // Physical shelf/rack locator
+  enableDiscounts: boolean;          // Line item and bill discount
+  enableWholesalePurchase: boolean;  // Inward stock tracking
+}
+
+export interface WorkspaceLicense {
+  status: LicenseStatus;
+  plan: PlanTier;
+  validUntil: string;                // ISO date string e.g. "2027-12-31"
+  maxMonthlyBills: number;           // Quota limit (e.g. 5000 or -1 for unlimited)
+  ownerName: string;
+  ownerPhone: string;
+  ownerEmail: string;
+  licenseKey: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;                      // URL friendly slug
+  industry: IndustryType;
+  theme?: CompanyTheme;              // Custom branding color theme
+  features: WorkspaceFeatures;
+  license: WorkspaceLicense;
+  settings: StoreSettings;
+  createdAt: string;
+  notes?: string;
+}
+
 export type ScheduleType = 'OTC' | 'Schedule H' | 'Schedule H1' | 'Schedule X' | 'Narcotic';
 
 export type MedicineCategory = 
@@ -11,40 +54,57 @@ export type MedicineCategory =
   | 'Medical Devices & First Aid'
   | 'Nutraceuticals & Vitamins'
   | 'Baby Care'
-  | 'Personal Care';
+  | 'Personal Care'
+  | 'Food & Beverages'
+  | 'Dairy & Bakery'
+  | 'Snacks & Packaged Food'
+  | 'Household & Cleaning'
+  | 'Electronics & Gadgets'
+  | 'Mobile Accessories'
+  | 'Apparel & Fashion'
+  | 'Footwear'
+  | 'General Goods';
 
 export interface Medicine {
   id: string;
+  workspaceId?: string;  // Multi-tenant partition ID
   name: string;
-  genericName: string;
-  manufacturer: string;
-  category: MedicineCategory;
-  rack: string;          // e.g. "Rack A"
-  shelf: string;         // e.g. "Shelf 2"
-  hsnCode: string;       // e.g. "30049099"
+  genericName: string;   // For non-pharma: Subtitle / Brand / Specification
+  manufacturer: string;  // Brand / Manufacturer / Vendor
+  category: MedicineCategory | string;
+  rack: string;          // Shelf / Aisle / Rack
+  shelf: string;         // Shelf position
+  hsnCode: string;       // GST / Tax classification
   schedule: ScheduleType;
-  unit: string;          // "Strip", "Bottle", "Tube", "Box", "Vial", "Piece"
-  packSize: number;      // e.g. 10 tablets per strip
-  minStockAlert: number; // e.g. 15
-  defaultGstPercent: number; // 0, 5, 12, 18
+  unit: string;          // "Strip", "Bottle", "Piece", "Kg", "Litre", "Box", "Set"
+  packSize: number;      // Pack count or multiplier
+  minStockAlert: number;
+  defaultGstPercent: number; // 0, 5, 12, 18, 28
   description?: string;
-  mrp?: number;          // Maximum Retail Price
-  saleRate?: number;     // Selling rate
-  purchaseRate?: number; // Cost price (excl. tax)
-  barcode?: string;      // Barcode / EAN-13 / SKU
+  mrp?: number;          // Default MRP
+  saleRate?: number;     // Default Sale Price
+  purchaseRate?: number; // Cost Price
+  barcode?: string;      // EAN-13 / UPC / SKU Barcode
+  brand?: string;        // Specific to electronics/fashion
+  modelNumber?: string;  // Electronics model
+  warrantyMonths?: number; // Warranty period in months
+  serialNumber?: string; // Serial / IMEI number
+  size?: string;         // S, M, L, XL, 32, 40 etc.
+  color?: string;        // Red, Blue, Black etc.
   createdAt: string;
 }
 
 export interface Batch {
   id: string;
+  workspaceId?: string;  // Multi-tenant partition ID
   medicineId: string;
   medicineName: string;
-  batchNumber: string;
+  batchNumber: string;   // Batch / Lot / Stock Code
   expiryDate: string;    // YYYY-MM
-  purchaseRate: number;  // Cost price per strip/unit (excl. tax)
+  purchaseRate: number;  // Cost price (excl. tax)
   mrp: number;           // Maximum Retail Price
-  saleRate: number;      // Selling rate (usually equal or discounted from MRP)
-  stockQty: number;      // Available units/strips
+  saleRate: number;      // Selling rate
+  stockQty: number;      // Available units
   barcode?: string;
   supplierId?: string;
   supplierName?: string;
@@ -57,7 +117,7 @@ export interface CartItem {
   medicineName: string;
   genericName: string;
   manufacturer: string;
-  category: MedicineCategory;
+  category: MedicineCategory | string;
   rackLocation: string;
   schedule: ScheduleType;
   batchNumber: string;
@@ -68,17 +128,20 @@ export interface CartItem {
   qty: number;
   freeQty: number;
   mrp: number;
-  unitRate: number;       // Base rate charged
-  discountPercent: number;// Line item discount %
-  gstPercent: number;     // 0, 5, 12, 18
+  unitRate: number;
+  discountPercent: number;
+  gstPercent: number;
   taxableAmount: number;
   gstAmount: number;
   totalAmount: number;
   barcode?: string;
+  serialNumber?: string;
+  warrantyMonths?: number;
 }
 
 export interface Customer {
   id: string;
+  workspaceId?: string;
   name: string;
   phone: string;
   email?: string;
@@ -91,6 +154,7 @@ export interface Customer {
 
 export interface Doctor {
   id: string;
+  workspaceId?: string;
   name: string;
   specialization?: string;
   clinic?: string;
@@ -101,6 +165,7 @@ export interface Doctor {
 
 export interface Supplier {
   id: string;
+  workspaceId?: string;
   name: string;
   contactPerson?: string;
   phone: string;
@@ -115,9 +180,10 @@ export type PaymentMode = 'cash' | 'upi' | 'card' | 'credit' | 'split';
 
 export interface Invoice {
   id: string;
+  workspaceId?: string;
   invoiceNo: string;
-  date: string;          // ISO date string
-  time: string;          // HH:mm format
+  date: string;
+  time: string;
   customerId?: string;
   customerName: string;
   customerPhone: string;
@@ -138,7 +204,7 @@ export interface Invoice {
   creditAmount: number;
   status: 'paid' | 'credit' | 'cancelled';
   notes?: string;
-  createdYearMonth: string; // "2026-10" for fast report filtering
+  createdYearMonth: string;
 }
 
 export interface PurchaseItem {
@@ -161,6 +227,7 @@ export interface PurchaseItem {
 
 export interface PurchaseOrder {
   id: string;
+  workspaceId?: string;
   purchaseNo: string;
   supplierId: string;
   supplierName: string;
@@ -178,6 +245,7 @@ export interface PurchaseOrder {
 
 export interface CustomerPayment {
   id: string;
+  workspaceId?: string;
   customerId: string;
   customerName: string;
   date: string;
@@ -189,6 +257,7 @@ export interface CustomerPayment {
 
 export interface StoreSettings {
   id?: number;
+  workspaceId?: string;
   storeName: string;
   tagline: string;
   addressLine1: string;
@@ -198,11 +267,11 @@ export interface StoreSettings {
   pincode: string;
   phone: string;
   email: string;
-  dlNo1: string; // Drug License Form 20B
-  dlNo2: string; // Drug License Form 21B
-  gstin: string;
+  dlNo1: string; // Drug License Form 20B (or Trade License)
+  dlNo2: string; // Drug License Form 21B (or Shop Act No)
+  gstin: string; // Tax ID / GSTIN / VAT
   fssaiNo?: string;
-  upiId: string; // e.g. "pharmacy@upi"
+  upiId: string; // VPA
   upiName: string;
   currencySymbol: string;
   invoiceFooterTerms: string;
@@ -213,6 +282,7 @@ export interface StoreSettings {
 
 export interface HeldBill {
   id: string;
+  workspaceId?: string;
   holdTime: string;
   customerName: string;
   customerPhone: string;
@@ -220,4 +290,3 @@ export interface HeldBill {
   items: CartItem[];
   note?: string;
 }
-

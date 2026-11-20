@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard,
   ShoppingCart,
+  Receipt,
   Package,
   Truck,
   AlertTriangle,
@@ -13,10 +14,15 @@ import {
   ChevronLeft,
   ChevronRight,
   PlusCircle,
-  Database,
-  ExternalLink,
+  Building2,
+  ShoppingBag,
+  Cpu,
+  Sparkles,
+  Key,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
-import { StoreSettings } from '../types';
+import { StoreSettings, Workspace, IndustryType } from '../types';
 import { useBillingDraft } from '../context/BillingDraftContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -24,6 +30,8 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   settings: StoreSettings | null;
+  currentWorkspace: Workspace | null;
+  onOpenSuperAdmin: () => void;
   expiredCount: number;
   criticalExpiryCount: number;
   lowStockCount: number;
@@ -36,6 +44,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   setActiveTab,
   settings,
+  currentWorkspace,
+  onOpenSuperAdmin,
   expiredCount,
   criticalExpiryCount,
   lowStockCount,
@@ -47,6 +57,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { cart, hasActiveDraft } = useBillingDraft();
   const { t } = useLanguage();
 
+  const getIndustryIcon = (industry?: IndustryType) => {
+    switch (industry) {
+      case 'grocery':
+        return <ShoppingBag className="w-5 h-5 text-white" />;
+      case 'electronics':
+        return <Cpu className="w-5 h-5 text-white" />;
+      case 'clothing':
+        return <Sparkles className="w-5 h-5 text-white" />;
+      case 'pharmacy':
+      default:
+        return <Pill className="w-5 h-5 transform -rotate-45 text-white" />;
+    }
+  };
+
+  const getInventoryLabel = (industry?: IndustryType) => {
+    switch (industry) {
+      case 'grocery':
+        return t('sidebar.nav_inventory_grocery', 'Products & Groceries');
+      case 'electronics':
+        return t('sidebar.nav_inventory_tech', 'Electronics Catalog');
+      case 'clothing':
+        return t('sidebar.nav_inventory_fashion', 'Fashion & Apparel');
+      case 'pharmacy':
+      default:
+        return t('sidebar.nav_inventory', 'Medicines & Racks');
+    }
+  };
+
+  const isSuspended =
+    currentWorkspace?.license.status === 'suspended' || currentWorkspace?.license.status === 'expired';
+
+  // Build dynamic navigation groups based on workspace industry and feature toggles
   const navGroups = [
     {
       title: t('sidebar.group_pos', 'Point of Sale'),
@@ -62,14 +104,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: t('sidebar.nav_billing', 'Billing POS'),
           icon: ShoppingCart,
           shortcut: 'F2',
-          badge: hasActiveDraft
+          badge: isSuspended
+            ? 'LOCKED'
+            : hasActiveDraft
             ? `${cart.length} ${t('sidebar.in_cart', 'in cart')}`
             : heldBillsCount > 0
             ? `${heldBillsCount} ${t('sidebar.held', 'Held')}`
             : null,
-          badgeColor: hasActiveDraft
+          badgeColor: isSuspended
+            ? 'bg-red-600 text-white font-bold'
+            : hasActiveDraft
             ? 'bg-emerald-500 text-white font-black animate-pulse'
             : 'bg-amber-500 text-white',
+        },
+        {
+          id: 'bills',
+          label: t('sidebar.nav_bills', 'Generated Bills'),
+          icon: Receipt,
+          shortcut: 'F4',
         },
       ],
     },
@@ -78,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'inventory',
-          label: t('sidebar.nav_inventory', 'Medicines & Racks'),
+          label: getInventoryLabel(currentWorkspace?.industry),
           icon: Package,
           shortcut: 'F3',
         },
@@ -89,7 +141,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'alerts',
-          label: t('sidebar.nav_alerts', 'Expiry & Low Stock'),
+          label: currentWorkspace?.features.enableBatchAndExpiry
+            ? t('sidebar.nav_alerts', 'Expiry & Low Stock')
+            : t('sidebar.nav_alerts_stock', 'Low Stock Alerts'),
           icon: AlertTriangle,
           badge: totalAlerts > 0 ? `${totalAlerts}` : null,
           badgeColor: expiredCount > 0 ? 'bg-red-500 text-white animate-pulse' : 'bg-amber-500 text-white',
@@ -104,11 +158,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: t('sidebar.nav_customers', 'Customer Khata (Credit)'),
           icon: Users,
         },
-        {
-          id: 'doctors',
-          label: t('sidebar.nav_doctors', 'Doctors Directory'),
-          icon: UserCheck,
-        },
+        // Doctors Directory only visible if enabled for this workspace (e.g. Pharmacy)
+        ...(currentWorkspace?.features.enableDoctorPrescription !== false
+          ? [
+              {
+                id: 'doctors',
+                label: t('sidebar.nav_doctors', 'Doctors Directory'),
+                icon: UserCheck,
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -147,26 +206,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
             isCollapsed ? 'justify-center relative group' : 'space-x-3 overflow-hidden min-w-0'
           }`}
           onClick={() => setActiveTab('dashboard')}
-          title={settings?.storeName || 'HealthPlus Pharmacy'}
+          title={currentWorkspace?.name || settings?.storeName || 'HealthPlus Pharmacy'}
         >
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20 text-white font-black shrink-0 hover:scale-105 transition-transform">
-            <Pill className="w-5 h-5 transform -rotate-45" />
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-white font-black shrink-0 hover:scale-105 transition-transform ${
+              isSuspended
+                ? 'bg-gradient-to-tr from-red-600 to-rose-400 shadow-red-500/20'
+                : currentWorkspace?.industry === 'grocery'
+                ? 'bg-gradient-to-tr from-amber-600 to-amber-400 shadow-amber-500/20'
+                : currentWorkspace?.industry === 'electronics'
+                ? 'bg-gradient-to-tr from-blue-600 to-cyan-400 shadow-blue-500/20'
+                : currentWorkspace?.industry === 'clothing'
+                ? 'bg-gradient-to-tr from-purple-600 to-pink-400 shadow-purple-500/20'
+                : 'bg-gradient-to-tr from-emerald-600 to-teal-400 shadow-emerald-500/20'
+            }`}
+          >
+            {isSuspended ? <Lock className="w-5 h-5 text-white" /> : getIndustryIcon(currentWorkspace?.industry)}
           </div>
           {!isCollapsed && (
             <div className="min-w-0">
               <h1 className="text-sm font-bold text-white tracking-tight truncate leading-tight">
-                {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HEALTHPLUS PHARMACY'}
+                {currentWorkspace?.name || settings?.storeName?.replace('& SURGICALS', '').trim() || 'HEALTHPLUS PHARMACY'}
               </h1>
-              <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider truncate">
-                {t('sidebar.tagline', 'Medical Store POS')}
-              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span
+                  className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded ${
+                    isSuspended
+                      ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                  }`}
+                >
+                  {isSuspended ? 'SUSPENDED' : `${currentWorkspace?.industry || 'PHARMA'} POS`}
+                </span>
+              </div>
             </div>
           )}
 
           {/* Popover tooltip when collapsed */}
           {isCollapsed && (
             <div className="absolute left-full ml-3 px-2.5 py-1 bg-slate-800 text-white text-xs rounded-lg shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50 whitespace-nowrap font-bold border border-slate-700">
-              {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HEALTHPLUS PHARMACY'}
+              {currentWorkspace?.name || settings?.storeName?.replace('& SURGICALS', '').trim() || 'HEALTHPLUS PHARMACY'}
             </div>
           )}
         </div>
@@ -186,27 +265,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Quick Action: New Bill Button */}
       <div className="p-3">
         <button
-          onClick={() => setActiveTab('billing')}
+          onClick={() => {
+            if (!isSuspended) setActiveTab('billing');
+          }}
+          disabled={isSuspended}
           className={`w-full py-2.5 px-3 ${
-            hasActiveDraft && activeTab !== 'billing'
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 ring-2 ring-emerald-400/50'
-              : 'bg-emerald-600 hover:bg-emerald-500'
-          } active:scale-[0.98] text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/30 flex items-center transition-all ${
+            isSuspended
+              ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+              : hasActiveDraft && activeTab !== 'billing'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 ring-2 ring-emerald-400/50 text-white'
+              : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+          } active:scale-[0.98] rounded-xl font-bold text-xs shadow-md shadow-emerald-600/30 flex items-center transition-all ${
             isCollapsed ? 'justify-center' : 'justify-between'
           }`}
-          title={hasActiveDraft ? 'Resume Active Bill (F2)' : 'New Bill (F2)'}
+          title={isSuspended ? 'License Suspended' : hasActiveDraft ? 'Resume Active Bill (F2)' : 'New Bill (F2)'}
         >
           <div className="flex items-center gap-2">
-            <PlusCircle className="w-4 h-4 shrink-0" />
+            {isSuspended ? <Lock className="w-4 h-4 shrink-0" /> : <PlusCircle className="w-4 h-4 shrink-0" />}
             {!isCollapsed && (
               <span>
-                {hasActiveDraft
+                {isSuspended
+                  ? 'Billing Suspended'
+                  : hasActiveDraft
                   ? `${t('sidebar.resume_bill', 'Resume Bill')} (${cart.length})`
                   : t('sidebar.quick_new_bill', 'Quick New Bill')}
               </span>
             )}
           </div>
-          {!isCollapsed && (
+          {!isCollapsed && !isSuspended && (
             <kbd className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-700/60 text-emerald-100 border border-emerald-500/30">
               F2
             </kbd>
@@ -275,7 +361,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ))}
       </nav>
+
+      {/* Super Admin Master Portal Fixed Button at Bottom of Sidebar */}
+      <div className="p-3 border-t border-slate-800/80 bg-slate-950/60">
+        <button
+          onClick={onOpenSuperAdmin}
+          className={`w-full flex items-center rounded-xl px-3 py-2.5 text-xs font-bold transition-all border ${
+            activeTab === 'superadmin'
+              ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 font-black'
+              : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/30 hover:border-amber-400'
+          } ${isCollapsed ? 'justify-center' : 'justify-between'}`}
+          title="Super Admin Master Portal (Platform Authority)"
+        >
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <Key className="w-4 h-4 text-amber-400 shrink-0" />
+            {!isCollapsed && (
+              <div className="text-left truncate">
+                <div className="text-white text-xs font-bold leading-tight truncate">Super Admin Portal</div>
+                <div className="text-[10px] text-amber-400 font-semibold leading-tight">Master Authority</div>
+              </div>
+            )}
+          </div>
+          {!isCollapsed && (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 border border-amber-400/30 font-black uppercase">
+              👑 Owner
+            </span>
+          )}
+        </button>
+      </div>
     </aside>
   );
 };
-

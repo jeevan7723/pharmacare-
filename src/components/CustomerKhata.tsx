@@ -27,7 +27,7 @@ import {
   CloudUpload,
 } from 'lucide-react';
 import { db } from '../db/db';
-import { Customer, CustomerPayment, Invoice, StoreSettings } from '../types';
+import { Customer, CustomerPayment, Invoice, StoreSettings, Workspace } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import {
   syncCustomerToCloud,
@@ -43,6 +43,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 interface CustomerKhataProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
   onRefreshStats: () => void;
 }
 
@@ -50,8 +51,9 @@ const DEMO_CUSTOMER_IDS = ['cust-01', 'cust-02', 'cust-03', 'cust-04'];
 const DEMO_CUSTOMER_NAMES = ['rajesh sharma', 'pooja verma', 'anil deshmukh', 'sunita patil'];
 const DEMO_INVOICE_IDS = ['inv-demo-01', 'INV-2026-0001'];
 
-export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefreshStats }) => {
-  const symbol = settings?.currencySymbol || '₹';
+export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, currentWorkspace, onRefreshStats }) => {
+  const symbol = currentWorkspace?.settings.currencySymbol || settings?.currencySymbol || '₹';
+  const targetWsId = currentWorkspace?.id || 'ws_healthplus';
   const { t, language } = useLanguage();
 
   // Sub-tabs: 'customers' (Directory & Ledgers) vs 'payments' (All Customer Payments) vs 'all-bills' (All Store Bills Register)
@@ -156,9 +158,14 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
   const loadData = async () => {
     // Backfill any invoice payments into local Dexie customerPayments
     await backfillInvoicePaymentsToLocalDb();
-    const custs = await db.customers.toArray();
-    const pmts = await db.customerPayments.reverse().toArray();
-    const invs = await db.invoices.reverse().toArray(); // newest bills first
+    const allCusts = await db.customers.toArray();
+    const allPmts = await db.customerPayments.reverse().toArray();
+    const allInvs = await db.invoices.reverse().toArray(); // newest bills first
+
+    const custs = allCusts.filter((c) => (c.workspaceId || 'ws_healthplus') === targetWsId);
+    const pmts = allPmts.filter((p) => (p.workspaceId || 'ws_healthplus') === targetWsId);
+    const invs = allInvs.filter((i) => (i.workspaceId || 'ws_healthplus') === targetWsId);
+
     setCustomers(custs);
     setPayments(pmts);
     setInvoices(invs);
@@ -180,7 +187,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
       });
     };
     init();
-  }, []);
+  }, [targetWsId]);
 
   // Delete a customer
   const handleDeleteCustomer = async (cust: Customer) => {
@@ -337,6 +344,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
 
     const newCust: Customer = {
       id: `cust-${Date.now()}`,
+      workspaceId: targetWsId,
       name: custForm.name.trim(),
       phone: custForm.phone?.trim() || 'N/A',
       email: custForm.email?.trim(),
@@ -382,6 +390,7 @@ export const CustomerKhata: React.FC<CustomerKhataProps> = ({ settings, onRefres
 
     const paymentRecord: CustomerPayment = {
       id: `pay-${Date.now()}`,
+      workspaceId: targetWsId,
       customerId: targetCustForPay.id,
       customerName: targetCustForPay.name,
       date: new Date().toISOString().split('T')[0],

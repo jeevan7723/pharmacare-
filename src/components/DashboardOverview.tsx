@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   TrendingUp,
   ShoppingCart,
+  Receipt,
   Package,
   AlertTriangle,
   Users,
@@ -18,13 +19,15 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { db } from '../db/db';
-import { Medicine, Batch, Invoice, Customer, StoreSettings } from '../types';
+import { Medicine, Batch, Invoice, Customer, StoreSettings, Workspace } from '../types';
 import { formatCurrency, formatDate, checkExpiryStatus } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 
 interface DashboardOverviewProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
   setActiveTab: (tab: string) => void;
+  onQuickAddProduct?: () => void;
   expiredCount: number;
   criticalExpiryCount: number;
   lowStockCount: number;
@@ -33,19 +36,26 @@ interface DashboardOverviewProps {
 
 export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
   settings,
+  currentWorkspace,
   setActiveTab,
+  onQuickAddProduct,
   expiredCount,
   criticalExpiryCount,
   lowStockCount,
   heldBillsCount,
 }) => {
-  const symbol = settings?.currencySymbol || '₹';
+  const symbol = currentWorkspace?.settings.currencySymbol || settings?.currencySymbol || '₹';
   const { t, language } = useLanguage();
+
+  const industry = currentWorkspace?.industry || 'pharmacy';
+  const isPharmacy = industry === 'pharmacy';
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+
+  const targetWsId = currentWorkspace?.id || 'ws_healthplus';
 
   useEffect(() => {
     const load = async () => {
@@ -54,13 +64,14 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
       const allBatches = await db.batches.toArray();
       const allCusts = await db.customers.toArray();
 
-      setInvoices(allInvs);
-      setMedicines(allMeds);
-      setBatches(allBatches);
-      setCustomers(allCusts);
+      // Scoped per workspace
+      setInvoices(allInvs.filter((i) => (i.workspaceId || 'ws_healthplus') === targetWsId));
+      setMedicines(allMeds.filter((m) => (m.workspaceId || 'ws_healthplus') === targetWsId));
+      setBatches(allBatches.filter((b) => (b.workspaceId || 'ws_healthplus') === targetWsId));
+      setCustomers(allCusts.filter((c) => (c.workspaceId || 'ws_healthplus') === targetWsId));
     };
     load();
-  }, []);
+  }, [targetWsId]);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const currentMonthStr = todayStr.substring(0, 7);
@@ -87,17 +98,21 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] uppercase font-bold tracking-wider">
-              {t('dash.terminal_badge', 'Pharmacy POS Terminal')}
+              {currentWorkspace ? `${currentWorkspace.industry.toUpperCase()} POS TERMINAL` : t('dash.terminal_badge', 'Pharmacy POS Terminal')}
             </span>
             <span className="text-slate-400 text-xs">
               &bull; {new Date().toLocaleDateString(language === 'mr' ? 'mr-IN' : 'en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </span>
           </div>
           <h1 className="text-xl md:text-2xl font-black tracking-tight text-white mt-1">
-            {t('dash.welcome', 'Welcome to')} {settings?.storeName?.replace('& SURGICALS', '').trim() || 'HealthPlus Pharmacy'}
+            {t('dash.welcome', 'Welcome to')} {currentWorkspace?.name || settings?.storeName?.replace('& SURGICALS', '').trim() || 'HealthPlus Pharmacy'}
           </h1>
           <p className="text-xs text-slate-300 mt-1 max-w-xl">
-            {settings?.tagline || 'Manage fast counter sales, drug batches, wholesaler purchases, and customer credit.'}
+            {currentWorkspace?.settings.tagline ||
+              settings?.tagline ||
+              (isPharmacy
+                ? 'Manage fast counter sales, drug batches, wholesaler purchases, and customer credit.'
+                : 'Manage fast counter POS billing, product inventory, supplier purchases, and customer accounts.')}
           </p>
         </div>
       </div>
@@ -113,10 +128,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-red-900">
-                    {expiredCount} {t('dash.expired_alert_title', 'Medicine Batch is EXPIRED!')}
+                    {expiredCount} {isPharmacy ? t('dash.expired_alert_title', 'Medicine Batch is EXPIRED!') : 'Product Batch is EXPIRED!'}
                   </h4>
                   <p className="text-[11px] text-red-700">
-                    {t('dash.expired_alert_desc', 'Drug compliance required: pull these packs off shelves and create a distributor return sheet.')}
+                    {isPharmacy
+                      ? t('dash.expired_alert_desc', 'Drug compliance required: pull these packs off shelves and create a distributor return sheet.')
+                      : 'Safety notice: pull expired batches off retail shelves and create a supplier return sheet.'}
                   </p>
                 </div>
               </div>
@@ -138,7 +155,12 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-amber-900">
-                    {lowStockCount} {language === 'mr' ? 'औषधांचा साठा कमी झाला आहे' : `Medicine${lowStockCount > 1 ? 's are' : ''} Running Low on Stock`}
+                    {lowStockCount}{' '}
+                    {isPharmacy
+                      ? language === 'mr'
+                        ? 'औषधांचा साठा कमी झाला आहे'
+                        : `Medicine${lowStockCount > 1 ? 's are' : ''} Running Low on Stock`
+                      : `Product${lowStockCount > 1 ? 's are' : ''} Running Low on Stock`}
                   </h4>
                   <p className="text-[11px] text-amber-700">
                     {language === 'mr' ? 'किमान साठा मर्यादेपेक्षा कमी औषधे शिल्लक आहेत.' : 'Stock count has fallen below minimum alert threshold.'}
@@ -200,7 +222,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             </div>
           </div>
           <div className="text-2xl font-black text-slate-900 mt-2 font-mono">
-            {medicines.length} {t('dash.medicines', 'Medicines')}
+            {medicines.length} {isPharmacy ? t('dash.medicines', 'Medicines') : 'Products'}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             {batches.length} {t('dash.batches', 'Batches')} ({totalStockUnits.toLocaleString()} {t('dash.units_in_stock', 'units in stock')})
@@ -219,7 +241,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
             {formatCurrency(totalKhataDebt, symbol)}
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
-            {t('dash.due_from', 'Due from')} <strong>{customersWithDebt}</strong> {t('dash.patients', 'patients')}
+            {t('dash.due_from', 'Due from')} <strong>{customersWithDebt}</strong> {isPharmacy ? t('dash.patients', 'patients') : 'customers'}
           </p>
         </div>
       </div>
@@ -230,7 +252,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           {t('dash.quick_station', 'Quick Operations Station')}
         </h3>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           <button
             onClick={() => setActiveTab('billing')}
             className="p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left group"
@@ -243,14 +265,47 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </button>
 
           <button
-            onClick={() => setActiveTab('inventory')}
+            onClick={() => setActiveTab('bills')}
+            className="p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left group"
+          >
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center mb-2 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <Receipt className="w-4 h-4" />
+            </div>
+            <div className="text-xs font-bold text-slate-900">{language === 'mr' ? 'तयार बिले' : 'Generated Bills'}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{language === 'mr' ? 'सर्व बिलांची नोंद' : 'Bills register & reprint'}</div>
+          </button>
+
+          <button
+            onClick={() => {
+              if (onQuickAddProduct) {
+                onQuickAddProduct();
+              } else {
+                setActiveTab('inventory');
+              }
+            }}
             className="p-3 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all text-left group"
           >
             <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center mb-2 group-hover:bg-blue-600 group-hover:text-white transition-colors">
               <Package className="w-4 h-4" />
             </div>
-            <div className="text-xs font-bold text-slate-900">{t('dash.add_medicine', 'Add Medicine')}</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.add_medicine_desc', 'Manage master catalogue')}</div>
+            <div className="text-xs font-bold text-slate-900">
+              {currentWorkspace?.industry === 'grocery'
+                ? 'Add Grocery Item'
+                : currentWorkspace?.industry === 'electronics'
+                ? 'Add Electronic Item'
+                : currentWorkspace?.industry === 'clothing'
+                ? 'Add Fashion Product'
+                : t('dash.add_medicine', 'Add Medicine')}
+            </div>
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {currentWorkspace?.industry === 'grocery'
+                ? 'FMCG, food & items'
+                : currentWorkspace?.industry === 'electronics'
+                ? 'Gadgets & tech hardware'
+                : currentWorkspace?.industry === 'clothing'
+                ? 'Apparel, garments & sizes'
+                : t('dash.add_medicine_desc', 'Manage master catalogue')}
+            </div>
           </button>
 
           <button
@@ -261,7 +316,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <Truck className="w-4 h-4" />
             </div>
             <div className="text-xs font-bold text-slate-900">{t('dash.stock_inward', 'Stock Inward')}</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.stock_inward_desc', 'Distributor purchase bill')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {currentWorkspace?.industry === 'pharmacy'
+                ? t('dash.stock_inward_desc', 'Distributor purchase bill')
+                : 'Supplier purchase invoice'}
+            </div>
           </button>
 
           <button
@@ -272,7 +331,11 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
               <IndianRupee className="w-4 h-4" />
             </div>
             <div className="text-xs font-bold text-slate-900">{t('dash.receive_khata', 'Receive Khata')}</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">{t('dash.receive_khata_desc', 'Patient payment receipt')}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">
+              {currentWorkspace?.industry === 'pharmacy'
+                ? t('dash.receive_khata_desc', 'Patient payment receipt')
+                : 'Customer payment receipt'}
+            </div>
           </button>
 
           <button
@@ -323,7 +386,7 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <tr>
                   <th className="py-2.5 px-3">{t('dash.col_bill_no', 'Bill No')}</th>
                   <th className="py-2.5 px-2">{language === 'mr' ? 'वेळ' : 'Time'}</th>
-                  <th className="py-2.5 px-2">{t('dash.col_patient', 'Patient / Customer')}</th>
+                  <th className="py-2.5 px-2">{isPharmacy ? t('dash.col_patient', 'Patient / Customer') : 'Customer'}</th>
                   <th className="py-2.5 px-2 text-center">{t('dash.col_items', 'Items')}</th>
                   <th className="py-2.5 px-2 text-center">{t('dash.col_payment', 'Payment')}</th>
                   <th className="py-2.5 px-3 text-right">{t('dash.col_total', 'Amount')}</th>
@@ -365,38 +428,68 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
           </div>
         </div>
 
-        {/* Fast Moving Categories & Drug Rules (4 cols) */}
+        {/* Fast Moving Categories & Drug Rules / Store Profile (4 cols) */}
         <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Drug Regulatory Standards
-            </h3>
-            <div className="space-y-2 text-xs">
-              <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-900">
-                <span className="font-bold">Schedule H / H1:</span> Doctor prescription required. Dispensing register entry mandatory.
-              </div>
-              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900">
-                <span className="font-bold">OTC Formulations:</span> Open for retail over-the-counter dispensing without prescription.
-              </div>
-              <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-900">
-                <span className="font-bold">Drug Licenses:</span> Form 20B & 21B issued under Drugs and Cosmetics Act.
+          {/* Drug Regulatory Standards - ONLY shown for medical software */}
+          {isPharmacy ? (
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Drug Regulatory Standards
+              </h3>
+              <div className="space-y-2 text-xs">
+                <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-900">
+                  <span className="font-bold">Schedule H / H1:</span> Doctor prescription required. Dispensing register entry mandatory.
+                </div>
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900">
+                  <span className="font-bold">OTC Formulations:</span> Open for retail over-the-counter dispensing without prescription.
+                </div>
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-blue-900">
+                  <span className="font-bold">Drug Licenses:</span> Form 20B & 21B issued under Drugs and Cosmetics Act.
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Store & Tax Profile
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 uppercase">
+                  {currentWorkspace?.industry || 'Retail'}
+                </span>
+              </div>
+              <div className="space-y-2 text-xs">
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">GSTIN Tax ID:</span>
+                  <span className="font-mono font-bold text-slate-900">{currentWorkspace?.settings.gstin || settings?.gstin || 'Regular GST Registered'}</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Store Contact:</span>
+                  <span className="font-semibold text-slate-900">{currentWorkspace?.settings.phone || settings?.phone || '+91 98765 43210'}</span>
+                </div>
+                <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Billing Currency:</span>
+                  <span className="font-bold text-slate-900">{symbol} (Standard Retail)</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-5 text-white shadow-md">
             <h4 className="text-xs uppercase font-bold tracking-wider text-emerald-200">
-              Need to Add a Wholesaler Bill?
+              {isPharmacy ? 'Need to Add a Wholesaler Bill?' : 'Need to Add a Supplier Bill?'}
             </h4>
             <p className="text-xs text-emerald-100 mt-1">
-              Add inward distributor bills to immediately increase your stock batch quantities and cost price.
+              {isPharmacy
+                ? 'Add inward distributor bills to immediately increase your stock batch quantities and cost price.'
+                : 'Add inward supplier purchase invoices to immediately increase your stock quantities and update unit costs.'}
             </p>
             <button
               onClick={() => setActiveTab('purchase')}
               className="mt-3 px-3.5 py-2 bg-white text-emerald-900 font-bold text-xs rounded-xl shadow-xs hover:bg-emerald-50 flex items-center gap-1.5"
             >
               <Truck className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Open Stock Inward</span>
+              <span>{isPharmacy ? 'Open Stock Inward' : 'Open Supplier Purchase'}</span>
             </button>
           </div>
         </div>

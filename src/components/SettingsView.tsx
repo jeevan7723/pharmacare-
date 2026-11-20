@@ -18,9 +18,10 @@ import {
   Server,
   FileDown,
   Loader2,
+  Palette,
 } from 'lucide-react';
 import { db, exportDatabaseToJson, restoreDatabaseFromJson, resetDatabaseToDefault } from '../db/db';
-import { StoreSettings } from '../types';
+import { StoreSettings, Workspace, CompanyTheme } from '../types';
 import { generateStorePdfBackup } from '../utils/pdfBackupGenerator';
 import {
   checkFirebaseConnection,
@@ -29,13 +30,21 @@ import {
   syncSettingsToCloud,
 } from '../firebase/firestoreService';
 import { useLanguage } from '../context/LanguageContext';
+import { THEMES } from './TopHeader';
 
 interface SettingsProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
   onRefreshSettings: () => void;
+  onUpdateWorkspaceTheme?: (theme: CompanyTheme) => void;
 }
 
-export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSettings }) => {
+export const SettingsView: React.FC<SettingsProps> = ({
+  settings,
+  currentWorkspace,
+  onRefreshSettings,
+  onUpdateWorkspaceTheme,
+}) => {
   const { t, language } = useLanguage();
   const [formData, setFormData] = useState<StoreSettings>({
     storeName: '',
@@ -96,9 +105,9 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
 
   // Upload all local data to Firebase Cloud
   const handleUploadAllToCloud = async () => {
-    if (!confirm('Upload all local medicines, batches, customers, invoices, and settings to Firebase Cloud Firestore?')) return;
+    if (!confirm('Upload and store ALL companies, workspaces, products, batches, customers, suppliers, and invoices to Firebase Cloud Firestore database?')) return;
     setIsCloudSyncing(true);
-    setCloudSyncMessage('Uploading all local database collections to Firebase Cloud...');
+    setCloudSyncMessage('Storing all companies and database collections in Firebase Cloud...');
     const res = await uploadLocalDatabaseToCloud();
     setIsCloudSyncing(false);
     setCloudSyncMessage(res.message);
@@ -215,10 +224,51 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
             Medical Store Name & Licenses
           </h3>
 
+          {/* Company Brand Color Theme */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Palette className="w-4 h-4 text-emerald-600" />
+                <span>Company Brand Color Theme</span>
+              </label>
+              <span className="text-[11px] font-semibold text-slate-500 capitalize">
+                Current: <strong className="text-slate-900">{currentWorkspace?.theme || (currentWorkspace?.industry === 'grocery' ? 'amber' : currentWorkspace?.industry === 'electronics' ? 'blue' : currentWorkspace?.industry === 'clothing' ? 'purple' : 'emerald')}</strong>
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Select the primary accent and brand styling for this workspace. Buttons, badges, quick actions, and tabs adapt dynamically.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 pt-1">
+              {THEMES.map((th) => {
+                const activeTheme = currentWorkspace?.theme || (
+                  currentWorkspace?.industry === 'grocery' ? 'amber' :
+                  currentWorkspace?.industry === 'electronics' ? 'blue' :
+                  currentWorkspace?.industry === 'clothing' ? 'purple' : 'emerald'
+                );
+                const isSelected = activeTheme === th.id;
+                return (
+                  <button
+                    key={th.id}
+                    type="button"
+                    onClick={() => onUpdateWorkspaceTheme?.(th.id)}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                      isSelected
+                        ? 'border-emerald-600 bg-white shadow-sm ring-2 ring-emerald-500/30 font-bold'
+                        : 'border-slate-200 bg-white hover:bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    <span className={`w-5 h-5 rounded-full ${th.bg} shadow-xs ring-1 ring-black/10`} />
+                    <span className="text-[11px] text-slate-800 leading-tight">{th.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">
-                Pharmacy / Medical Store Name *
+                Store / Company Name *
               </label>
               <input
                 type="text"
@@ -514,10 +564,10 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
             <div>
               <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
                 <CloudUpload className="w-4 h-4 text-emerald-600" />
-                <span>Upload Local Inventory & Bills to Firebase Cloud</span>
+                <span>Store All Companies & Records to Cloud</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Uploads all local medicines, batches, customers, invoices, and settings into your Firebase Cloud Firestore collections.
+                Uploads and stores all client companies, workspaces, products, batches, customers, suppliers, and bills in your Firebase Cloud Firestore database.
               </p>
             </div>
             <button
@@ -527,7 +577,7 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
               className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <CloudUpload className="w-4 h-4" />
-              <span>Upload Local Data to Firebase</span>
+              <span>Store All Companies in Firebase</span>
             </button>
           </div>
 
@@ -536,10 +586,10 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
             <div>
               <div className="flex items-center gap-2 text-slate-900 font-bold text-xs">
                 <CloudDownload className="w-4 h-4 text-teal-600" />
-                <span>Fetch / Sync from Firebase Cloud</span>
+                <span>Fetch All Companies from Cloud</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-1">
-                Fetches all medicines, batches, and patient accounts from Firebase Cloud Firestore into this terminal.
+                Fetches all client companies, products, batches, suppliers, and customer accounts from Firebase Cloud Firestore into this terminal.
               </p>
             </div>
             <button
@@ -549,7 +599,7 @@ export const SettingsView: React.FC<SettingsProps> = ({ settings, onRefreshSetti
               className="mt-4 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <CloudDownload className="w-4 h-4 text-teal-400" />
-              <span>Fetch Data from Firebase Cloud</span>
+              <span>Fetch All Companies from Cloud</span>
             </button>
           </div>
         </div>

@@ -19,6 +19,8 @@ import {
   syncHeldBillToCloud,
   deleteHeldBillFromCloud,
   syncSettingsToCloud,
+  syncWorkspaceToCloud,
+  deleteWorkspaceFromCloud,
   isSyncingFromCloud,
   setSyncingFromCloud,
 } from './firestoreService';
@@ -200,6 +202,23 @@ export function initLiveSyncEngine() {
       if (updatedObj) syncSettingsToCloud(updatedObj);
       else db.settings.get(primKey).then((full) => full && syncSettingsToCloud(full));
     };
+  });
+
+  // 11. Workspaces (Companies)
+  db.workspaces.hook('creating', function (this: any, _primKey, obj) {
+    if (isSyncingFromCloud) return;
+    this.onsuccess = () => syncWorkspaceToCloud(obj);
+  });
+  db.workspaces.hook('updating', function (this: any, _modifications, primKey, _obj) {
+    if (isSyncingFromCloud) return;
+    this.onsuccess = (updatedObj: any) => {
+      if (updatedObj) syncWorkspaceToCloud(updatedObj);
+      else db.workspaces.get(primKey).then((full) => full && syncWorkspaceToCloud(full));
+    };
+  });
+  db.workspaces.hook('deleting', function (this: any, primKey) {
+    if (isSyncingFromCloud) return;
+    this.onsuccess = () => deleteWorkspaceFromCloud(primKey as string);
   });
 
   console.log('⚡ [Live Sync Engine] Active: Every local database operation automatically syncs to Firebase Cloud.');

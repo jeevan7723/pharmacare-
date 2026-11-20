@@ -36,6 +36,7 @@ import {
   HeldBill,
   PaymentMode,
   CustomerPayment,
+  Workspace,
 } from '../types';
 import {
   formatCurrency,
@@ -56,13 +57,23 @@ import { useLanguage } from '../context/LanguageContext';
 
 interface BillingPOSProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
   onRefreshStats: () => void;
   isActive?: boolean;
 }
 
-export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats, isActive = true }) => {
-  const symbol = settings?.currencySymbol || '₹';
+export const BillingPOS: React.FC<BillingPOSProps> = ({
+  settings,
+  currentWorkspace,
+  onRefreshStats,
+  isActive = true,
+}) => {
+  const symbol = currentWorkspace?.settings.currencySymbol || settings?.currencySymbol || '₹';
   const { t, language } = useLanguage();
+
+  const targetWsId = currentWorkspace?.id || 'ws_healthplus';
+  const isSuspended =
+    currentWorkspace?.license.status === 'suspended' || currentWorkspace?.license.status === 'expired';
 
   // Shared billing draft state (survives tab switching and reloads)
   const {
@@ -131,13 +142,19 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
   const printDialogRef = useRef<HTMLDialogElement>(null);
   const heldBillsDialogRef = useRef<HTMLDialogElement>(null);
 
-  // Load initial data
+  // Load initial data scoped to active workspace
   const loadData = async () => {
     await ensureAllBarcodes();
-    const meds = await db.medicines.toArray();
-    const batches = await db.batches.toArray();
-    const docs = await db.doctors.toArray();
-    const held = await db.heldBills.toArray();
+    const allMeds = await db.medicines.toArray();
+    const allBatches = await db.batches.toArray();
+    const allDocs = await db.doctors.toArray();
+    const allHeld = await db.heldBills.toArray();
+
+    const meds = allMeds.filter((m) => (m.workspaceId || 'ws_healthplus') === targetWsId);
+    const batches = allBatches.filter((b) => (b.workspaceId || 'ws_healthplus') === targetWsId);
+    const docs = allDocs.filter((d) => (d.workspaceId || 'ws_healthplus') === targetWsId || !d.workspaceId);
+    const held = allHeld.filter((h) => (h.workspaceId || 'ws_healthplus') === targetWsId);
+
     setAllMedicines(meds);
     setAllBatches(batches);
     setDoctorsList(docs);
@@ -146,7 +163,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [targetWsId]);
 
   // Refresh data when switching to this tab, and close dialogs when switching away
   useEffect(() => {
@@ -245,11 +262,12 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
     setIsSearchOpen(true);
   }, [searchQuery, allMedicines, allBatches]);
 
-  // Customer phone suggestions
+  // Customer phone suggestions scoped to active workspace
   const handlePhoneChange = async (val: string) => {
     setCustomerPhone(val);
     if (val.length >= 3) {
-      const matches = await db.customers.where('phone').startsWithIgnoreCase(val).limit(4).toArray();
+      const allMatches = await db.customers.where('phone').startsWithIgnoreCase(val).limit(10).toArray();
+      const matches = allMatches.filter((c) => (c.workspaceId || 'ws_healthplus') === targetWsId).slice(0, 4);
       setCustomerSuggestions(matches);
     } else {
       setCustomerSuggestions([]);
@@ -567,6 +585,10 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
   // Settle Bill & Save
   const handleSettleAndSaveBill = async () => {
     if (cart.length === 0) return;
+    if (isSuspended) {
+      alert(`License for "${currentWorkspace?.name}" is currently SUSPENDED. You cannot generate or settle bills. Please contact the platform administrator to reactivate this company license.`);
+      return;
+    }
     setIsSaving(true);
 
     try {
@@ -605,10 +627,11 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
 
       if (!custId && (cleanPhone || cleanName)) {
         let existing = cleanPhone
-          ? await db.customers.where('phone').equals(cleanPhone).first()
+          ? (await db.customers.where('phone').equals(cleanPhone).toArray()).find((c) => (c.workspaceId || 'ws_healthplus') === targetWsId)
           : null;
         if (!existing && cleanName) {
-          existing = await db.customers.where('name').equalsIgnoreCase(cleanName).first();
+          const nameMatches = await db.customers.where('name').equalsIgnoreCase(cleanName).toArray();
+          existing = nameMatches.find((c) => (c.workspaceId || 'ws_healthplus') === targetWsId);
         }
         if (existing) {
           custId = existing.id;
@@ -616,6 +639,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           custId = `cust-${Date.now()}`;
           const newCust: Customer = {
             id: custId,
+            workspaceId: targetWsId,
             name: cleanName || 'Regular Customer',
             phone: cleanPhone || 'N/A',
             outstandingBalance: 0,
@@ -644,6 +668,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
       // Build invoice object
       const newInvoice: Invoice = {
         id: `inv-${Date.now()}`,
+        workspaceId: targetWsId,
         invoiceNo,
         date: dateStr,
         time: timeStr,
@@ -686,6 +711,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
         if (paid > 0) {
           const paymentRecord: CustomerPayment = {
             id: `pay-${newInvoice.id}`,
+            workspaceId: targetWsId,
             customerId: custId || 'walk-in',
             customerName: newInvoice.customerName,
             date: dateStr,
@@ -703,6 +729,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
       if (paid > 0) {
         const paymentRecord: CustomerPayment = {
           id: `pay-${newInvoice.id}`,
+          workspaceId: targetWsId,
           customerId: custId || 'walk-in',
           customerName: newInvoice.customerName,
           date: dateStr,
@@ -744,9 +771,12 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
     }
   };
 
-  const hasScheduleDrugs = cart.some(
-    (item) => item.schedule === 'Schedule H' || item.schedule === 'Schedule H1' || item.schedule === 'Schedule X'
-  );
+  const isPharmacy = (currentWorkspace?.industry || 'pharmacy') === 'pharmacy';
+  const hasScheduleDrugs =
+    isPharmacy &&
+    cart.some(
+      (item) => item.schedule === 'Schedule H' || item.schedule === 'Schedule H1' || item.schedule === 'Schedule X'
+    );
 
   return (
     <div className="p-4 max-w-7xl mx-auto space-y-4">
@@ -790,7 +820,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           </div>
 
           {/* Customer Name */}
-          <div className="md:col-span-3">
+          <div className={currentWorkspace?.features.enableDoctorPrescription !== false ? "md:col-span-3" : "md:col-span-6"}>
             <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
               {t('pos.patient_name', 'Patient / Customer Name')}
             </label>
@@ -803,34 +833,36 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
             />
           </div>
 
-          {/* Prescribing Doctor */}
-          <div className="md:col-span-3">
-            <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
-              <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
-              {t('pos.prescribing_doctor', 'Prescribing Doctor')}
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                list="doctors-datalist"
-                value={doctorName}
-                onChange={(e) => {
-                  setDoctorName(e.target.value);
-                  const matched = doctorsList.find((d) => d.name === e.target.value);
-                  if (matched && matched.regNo) setDoctorRegNo(matched.regNo);
-                }}
-                placeholder={t('pos.doctor_ph', 'Doctor Name or Select')}
-                className="w-full px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50 focus:bg-white"
-              />
-              <datalist id="doctors-datalist">
-                {doctorsList.map((d) => (
-                  <option key={d.id} value={d.name}>
-                    {d.specialization ? `${d.name} (${d.specialization})` : d.name}
-                  </option>
-                ))}
-              </datalist>
+          {/* Prescribing Doctor (Conditional per industry features) */}
+          {currentWorkspace?.features.enableDoctorPrescription !== false && (
+            <div className="md:col-span-3">
+              <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center gap-1">
+                <Stethoscope className="w-3.5 h-3.5 text-teal-600" />
+                {t('pos.prescribing_doctor', 'Prescribing Doctor')}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  list="doctors-datalist"
+                  value={doctorName}
+                  onChange={(e) => {
+                    setDoctorName(e.target.value);
+                    const matched = doctorsList.find((d) => d.name === e.target.value);
+                    if (matched && matched.regNo) setDoctorRegNo(matched.regNo);
+                  }}
+                  placeholder={t('pos.doctor_ph', 'Doctor Name or Select')}
+                  className="w-full px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50 focus:bg-white"
+                />
+                <datalist id="doctors-datalist">
+                  {doctorsList.map((d) => (
+                    <option key={d.id} value={d.name}>
+                      {d.specialization ? `${d.name} (${d.specialization})` : d.name}
+                    </option>
+                  ))}
+                </datalist>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Bill Action Buttons: Hold, Recall, Clear */}
           <div className="md:col-span-3 flex items-center justify-end space-x-2 pt-4 md:pt-0">
@@ -897,6 +929,26 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left Column: Medicine Search & Cart Table */}
         <div className="lg:col-span-8 space-y-3">
+          {/* Suspended License Warning in POS */}
+          {isSuspended && (
+            <div className="bg-red-50 border border-red-300 text-red-900 rounded-xl p-3.5 text-xs flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <ShieldAlert className="w-5 h-5 text-red-600 shrink-0" />
+                <div>
+                  <div className="font-black text-red-700 uppercase tracking-wide">
+                    LICENSE SUSPENDED FOR {currentWorkspace?.name}
+                  </div>
+                  <div className="text-red-800 text-[11px] font-medium">
+                    Billing operations are locked by platform administration. New invoices cannot be generated until reactivated in the Super Admin Portal.
+                  </div>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-red-600 text-white rounded-lg font-black text-[10px] uppercase tracking-wider shrink-0">
+                LOCKED
+              </span>
+            </div>
+          )}
+
           {/* Scan feedback toast banner */}
           {scanToast && (
             <div className="flex items-center justify-between px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-md animate-in fade-in slide-in-from-top-1">
@@ -943,7 +995,15 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                     }
                   }
                 }}
-                placeholder={t('pos.search_medicine_ph', 'Press F4 to Search Medicine (Brand Name, Generic Salt, Barcode, or Rack)...')}
+                placeholder={
+                  currentWorkspace?.industry === 'grocery'
+                    ? 'Scan barcode or press F4 to search grocery items (Rice, Atta, Oil, Dairy)...'
+                    : currentWorkspace?.industry === 'electronics'
+                    ? 'Scan barcode or press F4 to search electronics (Mobile, Laptop, Earphones, Cables)...'
+                    : currentWorkspace?.industry === 'clothing'
+                    ? 'Scan barcode or press F4 to search garments (Shirt, Jeans, Saree, Kurta)...'
+                    : t('pos.search_medicine_ph', 'Press F4 to Search Medicine (Brand Name, Generic Salt, Barcode, or Rack)...')
+                }
                 className="w-full pl-11 pr-24 py-3 bg-white text-slate-900 border-2 border-emerald-500 rounded-xl shadow-md text-base font-medium focus:ring-4 focus:ring-emerald-500/20 focus:outline-none placeholder:text-slate-400"
               />
               <div className="absolute right-3 flex items-center space-x-1.5">
@@ -989,15 +1049,17 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-slate-900 text-sm">{medicine.name}</span>
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
-                                medicine.schedule === 'Schedule H' || medicine.schedule === 'Schedule H1'
-                                ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                              }`}
-                            >
-                              {medicine.schedule}
-                            </span>
+                            {isPharmacy && medicine.schedule && (
+                              <span
+                                className={`text-[10px] font-bold px-1.5 py-0.2 rounded border ${
+                                  medicine.schedule === 'Schedule H' || medicine.schedule === 'Schedule H1'
+                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                                }`}
+                              >
+                                {medicine.schedule}
+                              </span>
+                            )}
                             <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded">
                               {medicine.category}
                             </span>
@@ -1083,7 +1145,7 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="px-4 py-2.5 bg-slate-900 text-white flex justify-between items-center text-xs font-bold">
               <span className="uppercase tracking-wider">
-                {t('pos.cart_title', 'CART MEDICINES')} ({cart.length} {t('pos.items', 'ITEMS')})
+                {isPharmacy ? t('pos.cart_title', 'CART MEDICINES') : 'CART ITEMS'} ({cart.length} {t('pos.items', 'ITEMS')})
               </span>
               <span className="text-slate-400 font-normal">
                 {language === 'mr' ? 'प्रमाण बदलण्यासाठी Enter किंवा बाण कळा वापरा' : 'Use Enter or arrow keys to adjust quantities'}
@@ -1109,9 +1171,17 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
-                      <th className="py-2.5 px-3">{t('pos.col_med', 'Medicine & Salt')}</th>
-                      <th className="py-2.5 px-2">{t('pos.col_rack', 'Rack')}</th>
-                      <th className="py-2.5 px-2">{t('pos.col_batch', 'Batch')} / {t('pos.col_exp', 'Exp')}</th>
+                      <th className="py-2.5 px-3">
+                        {currentWorkspace?.industry === 'pharmacy' ? t('pos.col_med', 'Medicine & Salt') : 'Product & Description'}
+                      </th>
+                      {currentWorkspace?.features.enableRacksAndShelves !== false && (
+                        <th className="py-2.5 px-2">{t('pos.col_rack', 'Rack')}</th>
+                      )}
+                      {currentWorkspace?.features.enableBatchAndExpiry !== false ? (
+                        <th className="py-2.5 px-2">{t('pos.col_batch', 'Batch')} / {t('pos.col_exp', 'Exp')}</th>
+                      ) : (
+                        <th className="py-2.5 px-2">Batch / SKU</th>
+                      )}
                       <th className="py-2.5 px-2 text-center w-20">{t('pos.col_qty', 'Qty')}</th>
                       <th className="py-2.5 px-2 text-center w-14">{language === 'mr' ? 'मोफत' : 'Free'}</th>
                       <th className="py-2.5 px-2 text-right">{t('pos.col_mrp', 'MRP')}</th>
@@ -1149,9 +1219,11 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
                           </td>
 
                           {/* Rack Location */}
-                          <td className="py-2 px-2 text-[11px] font-mono text-slate-600">
-                            {item.rackLocation}
-                          </td>
+                          {currentWorkspace?.features.enableRacksAndShelves !== false && (
+                            <td className="py-2 px-2 text-[11px] font-mono text-slate-600">
+                              {item.rackLocation}
+                            </td>
+                          )}
 
                           {/* Batch Selection & Expiry */}
                           <td className="py-2 px-2">
@@ -1346,11 +1418,21 @@ export const BillingPOS: React.FC<BillingPOSProps> = ({ settings, onRefreshStats
             {/* Settle Bill Button */}
             <button
               onClick={openPaymentModal}
-              disabled={cart.length === 0}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-black text-base rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all"
+              disabled={cart.length === 0 || isSuspended}
+              className={`w-full py-3.5 active:scale-[0.99] disabled:cursor-not-allowed text-white font-black text-base rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all ${
+                isSuspended
+                  ? 'bg-red-700/80 shadow-red-700/20'
+                  : 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 shadow-emerald-600/30'
+              }`}
             >
               <CreditCard className="w-5 h-5" />
-              <span>{language === 'mr' ? 'बिल सेटल व पेमेंट करा (F9)' : 'SETTLE BILL & PAY (F9)'}</span>
+              <span>
+                {isSuspended
+                  ? 'BILLING LOCKED (LICENSE SUSPENDED)'
+                  : language === 'mr'
+                  ? 'बिल सेटल व पेमेंट करा (F9)'
+                  : 'SETTLE BILL & PAY (F9)'}
+              </span>
             </button>
 
             {/* Quick Keyboard Helpers */}

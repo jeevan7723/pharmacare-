@@ -12,17 +12,19 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { db } from '../db/db';
-import { Invoice, StoreSettings } from '../types';
+import { Invoice, StoreSettings, Workspace } from '../types';
 import { formatCurrency, formatDate } from '../utils/formatters';
 import { PrintReceipt } from './PrintReceipt';
 import { useLanguage } from '../context/LanguageContext';
 
 interface ReportsProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
 }
 
-export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
-  const symbol = settings?.currencySymbol || '₹';
+export const ReportsView: React.FC<ReportsProps> = ({ settings, currentWorkspace }) => {
+  const symbol = currentWorkspace?.settings.currencySymbol || settings?.currencySymbol || '₹';
+  const targetWsId = currentWorkspace?.id || 'ws_healthplus';
   const { t, language } = useLanguage();
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -35,12 +37,12 @@ export const ReportsView: React.FC<ReportsProps> = ({ settings }) => {
 
   const loadData = async () => {
     const all = await db.invoices.reverse().toArray();
-    setInvoices(all);
+    setInvoices(all.filter((i) => (i.workspaceId || 'ws_healthplus') === targetWsId));
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [targetWsId]);
 
   // Filter invoices by date
   const now = new Date();

@@ -12,33 +12,36 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { db } from '../db/db';
-import { Medicine, Batch, StoreSettings } from '../types';
+import { Medicine, Batch, StoreSettings, Workspace } from '../types';
 import { formatCurrency, checkExpiryStatus } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 
 interface ExpiryAlertsProps {
   settings: StoreSettings | null;
+  currentWorkspace?: Workspace | null;
   onRefreshStats: () => void;
 }
 
-export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshStats }) => {
-  const symbol = settings?.currencySymbol || '₹';
+export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, currentWorkspace, onRefreshStats }) => {
+  const symbol = currentWorkspace?.settings.currencySymbol || settings?.currencySymbol || '₹';
+  const targetWsId = currentWorkspace?.id || 'ws_healthplus';
   const { t, language } = useLanguage();
+  const isPharmacy = (currentWorkspace?.industry || 'pharmacy') === 'pharmacy';
 
   const [activeTab, setActiveTab] = useState<'expired' | 'critical' | 'warning' | 'lowstock'>('expired');
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
 
   const loadData = async () => {
-    const meds = await db.medicines.toArray();
-    const b = await db.batches.toArray();
-    setMedicines(meds);
-    setBatches(b);
+    const allMeds = await db.medicines.toArray();
+    const allB = await db.batches.toArray();
+    setMedicines(allMeds.filter((m) => (m.workspaceId || 'ws_healthplus') === targetWsId));
+    setBatches(allB.filter((b) => (b.workspaceId || 'ws_healthplus') === targetWsId));
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [targetWsId]);
 
   // Compute expired, critical (<30d), and warning (<90d) batches
   const categorizedBatches = batches.map((batch) => {
@@ -72,7 +75,7 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
 
   // Remove / Write-off batch stock
   const handleWriteOff = async (batchId: string, medicineName: string) => {
-    if (!confirm(`Mark remaining stock of ${medicineName} as written off / returned to distributor? Stock will be set to 0.`)) return;
+    if (!confirm(`Mark remaining stock of ${medicineName} as written off / returned to ${isPharmacy ? 'distributor' : 'supplier'}? Stock will be set to 0.`)) return;
     await db.batches.update(batchId, { stockQty: 0 });
     await loadData();
     onRefreshStats();
@@ -87,12 +90,14 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <AlertTriangle className="w-5 h-5 text-red-600" />
-            {t('alerts.title', 'Drug Expiry & Low Stock Watchtower')}
+            {isPharmacy ? t('alerts.title', 'Drug Expiry & Low Stock Watchtower') : 'Batch Expiry & Low Stock Watchtower'}
           </h2>
           <p className="text-xs text-slate-500">
             {language === 'mr'
               ? 'औषध नियम पूर्तता: औषध मुदत संपणे निरीक्षण करा आणि सप्लायर रिटर्न शीट तयार करा.'
-              : 'Mandatory pharmacy compliance: monitor drug expiration dates and generate distributor return sheets.'}
+              : isPharmacy
+              ? 'Mandatory pharmacy compliance: monitor drug expiration dates and generate distributor return sheets.'
+              : 'Monitor batch expiration dates and generate supplier stock return / clearance sheets.'}
           </p>
         </div>
 
@@ -188,7 +193,7 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900 text-white font-bold border-b border-slate-800">
                 <tr>
-                  <th className="py-3 px-3">Medicine Name & Formulation</th>
+                  <th className="py-3 px-3">{isPharmacy ? 'Medicine Name & Formulation' : 'Product Name & Description'}</th>
                   <th className="py-3 px-2">Rack Location</th>
                   <th className="py-3 px-2">Batch No</th>
                   <th className="py-3 px-2">Expiry Date</th>
@@ -196,7 +201,7 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
                   <th className="py-3 px-2 text-right">Cost Rate</th>
                   <th className="py-3 px-2 text-right">MRP</th>
                   <th className="py-3 px-2 text-right">Potential Loss</th>
-                  <th className="py-3 px-2">Distributor</th>
+                  <th className="py-3 px-2">{isPharmacy ? 'Distributor' : 'Supplier'}</th>
                   <th className="py-3 px-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -252,7 +257,7 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
                       </td>
 
                       <td className="py-2.5 px-2 text-slate-600 text-[11px]">
-                        {batch.supplierName || 'Primary Wholesaler'}
+                        {batch.supplierName || (isPharmacy ? 'Primary Wholesaler' : 'Primary Supplier')}
                       </td>
 
                       <td className="py-2.5 px-3 text-right">
@@ -276,13 +281,13 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-900 text-white font-bold border-b border-slate-800">
                 <tr>
-                  <th className="py-3 px-3">Medicine Name</th>
+                  <th className="py-3 px-3">{isPharmacy ? 'Medicine Name' : 'Product Name'}</th>
                   <th className="py-3 px-2">Category</th>
                   <th className="py-3 px-2">Rack Location</th>
                   <th className="py-3 px-2 text-center">Current Total Stock</th>
                   <th className="py-3 px-2 text-center">Min Alert Level</th>
                   <th className="py-3 px-2 text-center">Shortage</th>
-                  <th className="py-3 px-2">Manufacturer</th>
+                  <th className="py-3 px-2">{isPharmacy ? 'Manufacturer' : 'Brand / Vendor'}</th>
                   <th className="py-3 px-3 text-right">Suggested Re-order</th>
                 </tr>
               </thead>
@@ -290,7 +295,9 @@ export const ExpiryAlerts: React.FC<ExpiryAlertsProps> = ({ settings, onRefreshS
                 {lowStockList.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="p-8 text-center text-slate-400">
-                      All medicines are well stocked above their minimum alert threshold!
+                      {isPharmacy
+                        ? 'All medicines are well stocked above their minimum alert threshold!'
+                        : 'All products are well stocked above their minimum alert threshold!'}
                     </td>
                   </tr>
                 ) : (
